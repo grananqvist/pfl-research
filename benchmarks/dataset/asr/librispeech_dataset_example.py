@@ -337,7 +337,8 @@ class MlxDataUserDataset(Dataset):
     def get_worker_partition(self) -> 'Dataset':
         partition_range = get_ops().distributed.distribute_range(len(self))
         return MlxDataUserDataset(
-            raw_data=self._raw_data[partition_range],
+            raw_data=dx.buffer_from_vector(
+                np.array(self._raw_data)[partition_range]),
             train_kwargs=self.train_kwargs,
             eval_kwargs=self.eval_kwargs,
             shuffle=self._shuffle,
