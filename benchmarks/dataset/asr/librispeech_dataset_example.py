@@ -172,6 +172,11 @@ class LibriSpeechDataset:
             user_id=user_id,
             dynamic_batching_key=self._dynamic_batching_key)
 
+    def full_dataset(self):
+        dataset = self.dataset
+        return MlxDataUserDataset(
+            dataset, dynamic_batching_key=self._dynamic_batching_key)
+
 
 def construct_eng_char_trie_for_ctc(additional_chars):
     trie = CharTrie()
@@ -255,7 +260,7 @@ class MlxDataUserDataset(Dataset):
             for this_value in dynamic_batching_values:
                 new_max = max(current_max_duration, this_value)
                 new_batch = current_batch_size + 1
-                if new_batch * new_max > batch_size:
+                if new_batch * new_max > batch_size and current_batch_size > 0:
                     batch_sizes.append(current_batch_size)
                     current_batch_size = 0
                     current_max_duration = 0
@@ -348,7 +353,9 @@ class MlxDataUserDataset(Dataset):
 def create_federated_dataset(split,
                              trie,
                              stored_datasets,
-                             batch_policy="dynamic"):
+                             batch_policy="dynamic",
+                             make_federated=True):
+    assert batch_policy in ["static", "dynamic"]
     dataset = LibriSpeechDataset(
         name=os.path.expanduser(f'~/.cache/mlx.data/librispeech/{split}.tar'),
         prefix=f"LibriSpeech/{split}",
@@ -360,12 +367,15 @@ def create_federated_dataset(split,
         target_pad=False,
         dynamic_batching_key="input_length"
         if batch_policy == "dynamic" else None)
-    user_ids = dataset.get_user_ids()
-    make_dataset_fn = dataset.make_dataset_fn
-    user_sampler = MinimizeReuseUserSampler(user_ids)
-    federated_dataset = FederatedDataset(make_dataset_fn=make_dataset_fn,
-                                         user_sampler=user_sampler)
-    return federated_dataset, user_ids
+    if make_federated:
+        user_ids = dataset.get_user_ids()
+        make_dataset_fn = dataset.make_dataset_fn
+        user_sampler = MinimizeReuseUserSampler(user_ids)
+        federated_dataset = FederatedDataset(make_dataset_fn=make_dataset_fn,
+                                             user_sampler=user_sampler)
+        return federated_dataset, user_ids
+    else:
+        return dataset.full_dataset()
 
 
 def get_timing(split='train-clean-100', max_runs_over_data=2, cohort_size=10):
@@ -427,9 +437,9 @@ stored_datasets = {}
 get_timing('dev-clean', 2, 10)
 get_timing('dev-clean', 2, 10)
 
-stored_datasets = {}
-get_timing('train-clean-100', 2, 10)
-get_timing('train-clean-100', 2, 10)
+# stored_datasets = {}
+# get_timing('train-clean-100', 2, 10)
+# get_timing('train-clean-100', 2, 10)
 
 # stored_datasets = {}
 # get_timing('train-clean-360', 2, 10)
@@ -441,37 +451,68 @@ get_timing('train-clean-100', 2, 10)
 print(
     '\n============================================================================='
 )
+print("Federated dataset example with dynamic batching")
+batch_size = 384000
 federated_dataset, user_ids = create_federated_dataset(
     split='dev-clean',
     trie=trie,
     stored_datasets=stored_datasets,
     batch_policy="dynamic")
-for i in range(3):
-    user_dataset, seed = next(federated_dataset)
+
+# Iterate through one cohort of size 5
+cohort = federated_dataset.get_cohort(5)
+for user_dataset, _ in cohort:
+    # Print shapes of first 3 static batches of size 5 for this user.
+    # These would be sent to the model for calculating the loss.
     print(
         f"\tReal user {user_dataset.user_id} has size of {len(user_dataset)}.")
-    for idx, x in enumerate(user_dataset.iter(384000)):
+    for idx, x in enumerate(user_dataset.iter(batch_size)):
         print(
             f"\t\tinput.shape: {x['input'].shape}   target.shape: {x['target'].shape}   total audio: {np.prod(x['input'].shape)}"
         )
-        if idx == 3:
+        if idx == 2:
             break
 
 print(
     '\n============================================================================='
 )
+print("Federated dataset example with static batching")
+batch_size = 5
 federated_dataset, user_ids = create_federated_dataset(
     split='dev-clean',
     trie=trie,
     stored_datasets=stored_datasets,
     batch_policy="static")
-for i in range(3):
-    user_dataset, seed = next(federated_dataset)
+
+# Iterate through one cohort of size 5
+cohort = federated_dataset.get_cohort(5)
+for user_dataset, _ in cohort:
+    # Print shapes of first 3 static batches of size 5 for this user
+    # These would be sent to the model for calculating the loss.
     print(
         f"\tReal user {user_dataset.user_id} has size of {len(user_dataset)}.")
-    for idx, x in enumerate(user_dataset.iter(5)):
+    for idx, x in enumerate(user_dataset.iter(batch_size)):
         print(
             f"\t\tinput.shape: {x['input'].shape}   target.shape: {x['target'].shape}   total audio: {np.prod(x['input'].shape)}"
         )
-        if idx == 3:
+        if idx == 2:
             break
+
+print(
+    '\n============================================================================='
+)
+print("Central dataset example with dynamic batching")
+batch_size = 384000
+central_dataset = create_federated_dataset(split='test-clean',
+                                           trie=trie,
+                                           stored_datasets=stored_datasets,
+                                           batch_policy="dynamic",
+                                           make_federated=False)
+# Print shapes of several batches from the central dataset
+# These would be sent to the model for calculating the evaluation metrics (loss, WER, ...).
+for idx, x in enumerate(central_dataset.iter(batch_size)):
+    print(
+        f"\t\tinput.shape: {x['input'].shape}   target.shape: {x['target'].shape}   total audio: {np.prod(x['input'].shape)}"
+    )
+    if idx == 3:
+        break
