@@ -1,0 +1,92 @@
+=============================================================================
+Split: dev-clean
+    time for initializing the dataset buffer: 0.9548201560974121
+    time for extracting durations and client ids: 0.06468605995178223
+Dataset total (h) duration 5.3878113194444435
+total 40 clients
+    time for grouping and other postprocessing: 0.0009720325469970703
+Initial creation of the federated dataset: 1.0209908485412598
+Time until 40 users processed: 0.08610200881958008  (per-user: 0.002152550220489502)
+Time until 80 users processed: 0.15952110290527344  (per-user: 0.001994013786315918)
+1.0209908485412598 initialization
+1.1070928573608398 initialization + 1 pass over data
+1.1805119514465332 initialization + 2 passes over data
+
+=============================================================================
+Split: dev-clean
+    time for extracting durations and client ids: 0.06822395324707031
+Dataset total (h) duration 5.3878113194444435
+total 40 clients
+    time for grouping and other postprocessing: 0.0007443428039550781
+Initial creation of the federated dataset: 0.06944894790649414
+Time until 40 users processed: 0.07375621795654297  (per-user: 0.0018439054489135741)
+Time until 80 users processed: 0.1475391387939453  (per-user: 0.0018442392349243164)
+0.06944894790649414 initialization
+0.1432051658630371 initialization + 1 pass over data
+0.21698808670043945 initialization + 2 passes over data
+
+=============================================================================
+Federated dataset example with dynamic batching
+    time for extracting durations and client ids: 0.07677006721496582
+Dataset total (h) duration 5.3878113194444435
+total 40 clients
+    time for grouping and other postprocessing: 0.0006511211395263672
+	Real user 84 has size of 65.
+		input.shape: (2, 144000)   target.shape: (2, 400)   total audio: 288000
+		input.shape: (2, 144000)   target.shape: (2, 400)   total audio: 288000
+		input.shape: (1, 256000)   target.shape: (1, 400)   total audio: 256000
+	Real user 174 has size of 59.
+		input.shape: (1, 272000)   target.shape: (1, 400)   total audio: 272000
+		input.shape: (1, 256000)   target.shape: (1, 400)   total audio: 256000
+		input.shape: (1, 32000)   target.shape: (1, 400)   total audio: 32000
+	Real user 251 has size of 75.
+		input.shape: (2, 192000)   target.shape: (2, 400)   total audio: 384000
+		input.shape: (4, 96000)   target.shape: (4, 400)   total audio: 384000
+		input.shape: (1, 64000)   target.shape: (1, 400)   total audio: 64000
+	Real user 422 has size of 36.
+		input.shape: (1, 48000)   target.shape: (1, 400)   total audio: 48000
+		input.shape: (1, 240000)   target.shape: (1, 400)   total audio: 240000
+		input.shape: (1, 528000)   target.shape: (1, 505)   total audio: 528000
+	Real user 652 has size of 71.
+		input.shape: (1, 256000)   target.shape: (1, 400)   total audio: 256000
+		input.shape: (2, 112000)   target.shape: (2, 400)   total audio: 224000
+		input.shape: (2, 160000)   target.shape: (2, 400)   total audio: 320000
+
+=============================================================================
+Federated dataset example with static batching
+    time for extracting durations and client ids: 0.07553911209106445
+Dataset total (h) duration 5.3878113194444435
+total 40 clients
+    time for grouping and other postprocessing: 0.0007069110870361328
+	Real user 84 has size of 65.
+		input.shape: (5, 256000)   target.shape: (5, 400)   total audio: 1280000
+		input.shape: (5, 144000)   target.shape: (5, 400)   total audio: 720000
+		input.shape: (5, 160000)   target.shape: (5, 400)   total audio: 800000
+	Real user 174 has size of 59.
+		input.shape: (5, 272000)   target.shape: (5, 400)   total audio: 1360000
+		input.shape: (5, 336000)   target.shape: (5, 400)   total audio: 1680000
+		input.shape: (5, 208000)   target.shape: (5, 400)   total audio: 1040000
+	Real user 251 has size of 75.
+		input.shape: (5, 192000)   target.shape: (5, 400)   total audio: 960000
+		input.shape: (5, 256000)   target.shape: (5, 400)   total audio: 1280000
+		input.shape: (5, 144000)   target.shape: (5, 400)   total audio: 720000
+	Real user 422 has size of 36.
+		input.shape: (5, 528000)   target.shape: (5, 505)   total audio: 2640000
+		input.shape: (5, 400000)   target.shape: (5, 406)   total audio: 2000000
+		input.shape: (5, 288000)   target.shape: (5, 400)   total audio: 1440000
+	Real user 652 has size of 71.
+		input.shape: (5, 256000)   target.shape: (5, 400)   total audio: 1280000
+		input.shape: (5, 160000)   target.shape: (5, 400)   total audio: 800000
+		input.shape: (5, 192000)   target.shape: (5, 400)   total audio: 960000
+
+=============================================================================
+Central dataset example with dynamic batching
+    time for initializing the dataset buffer: 0.6449930667877197
+    time for extracting durations and client ids: 0.060034990310668945
+Dataset total (h) duration 5.403466840277778
+total 40 clients
+    time for grouping and other postprocessing: 0.0006971359252929688
+		input.shape: (4, 80000)   target.shape: (4, 400)   total audio: 320000
+		input.shape: (2, 80000)   target.shape: (2, 400)   total audio: 160000
+		input.shape: (1, 224000)   target.shape: (1, 400)   total audio: 224000
+		input.shape: (2, 160000)   target.shape: (2, 400)   total audio: 320000
