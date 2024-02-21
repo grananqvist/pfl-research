@@ -252,14 +252,16 @@ class MlxDataUserDataset(Dataset):
             dataset = self._raw_data.batch(batch_size=batch_size)
             yield dataset
 
-        def get_dynamic_batch_sizes(dataset, batch_size,
-                                    dynamic_batching_values):
+        def get_dynamic_batch_sizes(batch_size, dynamic_batching_values):
             batch_sizes = []
             current_max_duration = 0
             current_batch_size = 0
             for this_value in dynamic_batching_values:
                 new_max = max(current_max_duration, this_value)
                 new_batch = current_batch_size + 1
+                # TODO: if the duration of one sample audio is longer than
+                #  the batch size, we create a batch with a single member,
+                #  possibly leading to issues.
                 if new_batch * new_max > batch_size and current_batch_size > 0:
                     batch_sizes.append(current_batch_size)
                     current_batch_size = 0
@@ -282,8 +284,7 @@ class MlxDataUserDataset(Dataset):
 
         if self._dynamic_batching_key:
             # TODO: Having some rare issues with the mlx.data dynamic batching so using a custom one.
-            batch_sizes = get_dynamic_batch_sizes(
-                dataset, batch_size, self._dynamic_batching_values)
+            batch_sizes = get_dynamic_batch_sizes(batch_size, self._dynamic_batching_values)
             dataset = dataset.batch(batch_sizes)
         else:
             dataset = dataset.batch(batch_size)
