@@ -1,6 +1,6 @@
 # Copyright © 2023-2024 Apple Inc.
 import argparse
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 import numpy as np
 from utils.argument_parsing import store_bool
@@ -20,7 +20,7 @@ def add_dataset_arguments(
                         choices=[
                             'cifar10', 'cifar10_iid', 'femnist',
                             'femnist_digits', 'reddit', 'flair', 'flair_iid',
-                            'flair_pytorch', 'stackoverflow'
+                            'flair_pytorch', 'stackoverflow', 'librispeech'
                         ],
                         default='cifar10',
                         help='Which dataset to train on')
@@ -148,9 +148,9 @@ def parse_draw_num_datapoints_per_user(
 
 
 def get_datasets(
-    args: argparse.Namespace
-) -> Tuple[FederatedDatasetBase, FederatedDatasetBase, Dataset, Dict[str,
-                                                                     Any]]:
+    args: argparse.Namespace,
+    **kwargs,
+) -> Tuple[FederatedDatasetBase, Union[FederatedDatasetBase, List[FederatedDatasetBase]], Dataset, Dict[str, Any]]:
     """
     Create a federated dataset for training, a federated dataset for evalution
     and a central dataset for central evaluation.
@@ -236,6 +236,18 @@ def get_datasets(
             data_path=args.data_path,
             use_fine_grained_labels=args.use_fine_grained_labels,
             max_num_user_images=args.max_num_user_images)
+    elif args.dataset == 'librispeech':
+        from .asr.librispeech import make_librispeech_datasets
+        assert 'tokenizer' in kwargs
+        datasets = make_librispeech_datasets(
+            data_path=args.data_path,
+            training_split=args.training_split,
+            evaluation_splits=args.evaluation_splits,
+            tokenizer=kwargs['tokenizer'],
+            stored_datasets=kwargs['stored_datasets'],
+            max_target_length=args.max_target_length,
+            dynamic_batching=args.local_batch_strategy == 'dynamic',
+        )
     else:
         raise ValueError(f'{args.dataset} is not supported')
     return datasets
