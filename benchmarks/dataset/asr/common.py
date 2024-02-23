@@ -1,17 +1,15 @@
-import time
+import logging
 import os.path
-
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import mlx.data as dx
 import numpy as np
 import pandas as pd
-import logging
 
 from pfl.data.dataset import Dataset
 from pfl.internal.ops.selector import get_framework_module as get_ops
 from pfl.model.pytorch import PyTorchModel  # pylint: disable=unused-import
-
 
 logger = logging.getLogger(name=__name__)
 
@@ -19,16 +17,17 @@ logger = logging.getLogger(name=__name__)
 class ASRDataset:
 
     def __init__(
-            self,
-            dataset: str,
-            data_path: str,
-            split: str,
-            trie: dx.core.CharTrie,
-            target_pad: bool = False,
-            n_threads: int = 4,
-            dynamic_batching: bool = True,
-            stored_datasets: Optional[Dict] = None,
+        self,
+        dataset: str,
+        data_path: str,
+        split: str,
+        trie: dx.core.CharTrie,
+        target_pad: bool = False,
+        n_threads: int = 4,
+        dynamic_batching: bool = True,
+        stored_datasets: Optional[Dict] = None,
     ):
+        self.trie = trie
         if dataset == 'librispeech':
             self.initialize_librispeech(
                 name=os.path.join(data_path, f'{split}.tar'),
@@ -37,7 +36,8 @@ class ASRDataset:
                 stored_datasets=stored_datasets,
                 n_threads=n_threads,
                 target_pad=target_pad,
-                dynamic_batching_key='input_length' if dynamic_batching else None,
+                dynamic_batching_key='input_length'
+                if dynamic_batching else None,
             )
         else:
             raise ValueError(f'Unknown dataset {dataset}')
@@ -68,19 +68,22 @@ class ASRDataset:
                     "file",
                     "samples",
                 ).line_reader_from_key(
-                    "samples", "sample", from_memory=True)
-                .sample_transform(self.process_csv_row).prefetch(
-                    n_threads, n_threads)  # TODO: check where to prefetch
-                .read_from_tar(
-                    name, "audio_file", "audio", prefix=prefix).load_audio(
-                    "audio", from_memory=True,
-                    output_key="input")
-                .tokenize("transcript",
-                          trie,
-                          ignore_unk=True,
-                          output_key="target").shape("input", "input_length",
-                                                     0).squeeze("input",
-                                                                -1)  # %1s, one channel
+                    "samples", "sample", from_memory=True).sample_transform(
+                        self.process_csv_row).prefetch(
+                            n_threads,
+                            n_threads)  # TODO: check where to prefetch
+                .read_from_tar(name, "audio_file", "audio",
+                               prefix=prefix).load_audio(
+                                   "audio",
+                                   from_memory=True,
+                                   output_key="input").tokenize(
+                                       "transcript",
+                                       trie,
+                                       ignore_unk=True,
+                                       output_key="target").shape(
+                                           "input", "input_length",
+                                           0).squeeze("input",
+                                                      -1)  # %1s, one channel
             )
             if target_pad:
                 self.dataset = self.dataset.pad('target', 0, 1, 1,
@@ -89,10 +92,12 @@ class ASRDataset:
             self.dataset = self.dataset.shape('target', 'target_length', 0)
 
             # prefetch all data and then bufferize them
-            self.dataset = self.dataset.prefetch(n_threads, n_threads).to_buffer()
+            self.dataset = self.dataset.prefetch(n_threads,
+                                                 n_threads).to_buffer()
 
             end = time.time()
-            logger.info(f'Time for initializing the dataset buffer: {end - start}')
+            logger.info(
+                f'Time for initializing the dataset buffer: {end - start}')
 
             if stored_datasets is not None:
                 stored_datasets[name] = self.dataset
@@ -104,7 +109,8 @@ class ASRDataset:
               for item in self.dataset))
 
         end = time.time()
-        logger.info(f'Time for extracting durations and client ids: {end - start}')
+        logger.info(
+            f'Time for extracting durations and client ids: {end - start}')
 
         # duration_perm = np.argsort(np.array(durations))[rank::num_nodes]
         # durations = np.array(durations)[duration_perm]
@@ -114,7 +120,9 @@ class ASRDataset:
         self.client_ids = np.array(self.client_ids)
 
         # TODO: Check why not exact match for total duration e.g. for train-clean-100
-        logger.info(f'Dataset total (h) duration {np.sum(self.durations) / 16000 / 60 / 60}')
+        logger.info(
+            f'Dataset total (h) duration {np.sum(self.durations) / 16000 / 60 / 60}'
+        )
 
         start = time.time()
 
@@ -128,7 +136,8 @@ class ASRDataset:
         self.df_group = self.df.groupby("client", sort=False).groups
 
         end = time.time()
-        logger.info(f'Time for grouping and other postprocessing: {end - start}')
+        logger.info(
+            f'Time for grouping and other postprocessing: {end - start}')
 
     @staticmethod
     def process_csv_row(sample):
@@ -169,12 +178,15 @@ class ASRDataset:
         return MlxDataUserDataset(
             dataset,
             user_id=user_id,
-            dynamic_batching_key=self._dynamic_batching_key)
+            dynamic_batching_key=self._dynamic_batching_key,
+            trie=self.trie)
 
     def full_dataset(self):
         dataset = self.dataset
         return MlxDataUserDataset(
-            dataset, dynamic_batching_key=self._dynamic_batching_key)
+            dataset,
+            dynamic_batching_key=self._dynamic_batching_key,
+            trie=self.trie)
 
 
 class MlxDataUserDataset(Dataset):
@@ -204,6 +216,7 @@ class MlxDataUserDataset(Dataset):
 
     def __init__(self,
                  raw_data: dx.Buffer,
+                 trie: dx.core.CharTrie,
                  user_id: Optional[str] = None,
                  metadata: Optional[Dict[str, Any]] = None,
                  train_kwargs: Optional[Dict[str, Any]] = None,
@@ -244,14 +257,18 @@ class MlxDataUserDataset(Dataset):
                 key=self._dynamic_batching_key,
                 max_data_size=batch_size,
                 shuffle=False,
-                pad={"input": 0, "target": trie.search("@").id},
+                pad={
+                    "input": 0,
+                    "target": self.trie.search("@").id
+                },
             )
         else:
-            dataset = dataset.batch(
-                batch_size, pad={"input": 0, "target": trie.search("@").id}
-            )
+            dataset = dataset.batch(batch_size,
+                                    pad={
+                                        "input": 0,
+                                        "target": self.trie.search("@").id
+                                    })
         yield from dataset
-
 
     # TODO: Modified but didn't test so far.
     def split(
@@ -286,6 +303,7 @@ class MlxDataUserDataset(Dataset):
         right_raw_data = raw_data_as_array[right_slice]
         train_dataset = MlxDataUserDataset(
             dx.buffer_from_vector(left_raw_data),
+            trie=self.trie,
             user_id=self.user_id,
             metadata=self.metadata,
             train_kwargs=self.train_kwargs,
@@ -294,6 +312,7 @@ class MlxDataUserDataset(Dataset):
             dynamic_batching_key=self._dynamic_batching_key)
         val_dataset = MlxDataUserDataset(
             dx.buffer_from_vector(right_raw_data),
+            trie=self.trie,
             user_id=self.user_id,
             metadata=self.metadata,
             train_kwargs=self.train_kwargs,
@@ -305,6 +324,7 @@ class MlxDataUserDataset(Dataset):
     def get_worker_partition(self) -> 'Dataset':
         partition_range = get_ops().distributed.distribute_range(len(self))
         return MlxDataUserDataset(
+            trie=self.trie,
             raw_data=dx.buffer_from_vector(
                 np.array(self._raw_data)[partition_range]),
             train_kwargs=self.train_kwargs,

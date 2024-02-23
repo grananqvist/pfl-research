@@ -150,7 +150,9 @@ def parse_draw_num_datapoints_per_user(
 def get_datasets(
     args: argparse.Namespace,
     **kwargs,
-) -> Tuple[FederatedDatasetBase, Union[FederatedDatasetBase, List[FederatedDatasetBase]], Dataset, Dict[str, Any]]:
+) -> Tuple[FederatedDatasetBase, Union[
+        FederatedDatasetBase, List[FederatedDatasetBase]], Dataset, Dict[str,
+                                                                         Any]]:
     """
     Create a federated dataset for training, a federated dataset for evalution
     and a central dataset for central evaluation.

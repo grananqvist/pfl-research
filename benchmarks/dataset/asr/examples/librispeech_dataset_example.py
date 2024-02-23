@@ -20,50 +20,49 @@ from pfl.model.pytorch import PyTorchModel  # pylint: disable=unused-import
 
 class LibriSpeechDataset:
 
-    def __init__(
-            self,
-            name,
-            prefix,
-            trie,
-            n_threads=-1,
-            target_pad=False,
-            dynamic_batching_key=None):
+    def __init__(self,
+                 name,
+                 prefix,
+                 trie,
+                 n_threads=-1,
+                 target_pad=False,
+                 dynamic_batching_key=None):
         assert trie is not None
 
         self._dynamic_batching_key = dynamic_batching_key
         start = time.time()
         self.dataset = (
             dx.files_from_tar(name).to_stream().sample_transform(
-                lambda s: s if bytes(s["file"]).endswith(b".txt") else {}).
-            read_from_tar(
-                name,
-                "file",
-                "samples",
-            ).line_reader_from_key(
-                "samples", "sample", from_memory=True)
-            .sample_transform(self.process_csv_row).prefetch(
-                n_threads, n_threads)  # TODO: check where to prefetch
-            .read_from_tar(
-                name, "audio_file", "audio", prefix=prefix).load_audio(
-                    "audio", from_memory=True,
-                    output_key="input")
-            .tokenize("transcript",
-                      trie,
-                      ignore_unk=True,
-                      output_key="target").shape("input", "input_length",
-                                   0).squeeze("input",
-                                              -1)  # %1s, one channel
+                lambda s: s
+                if bytes(s["file"]).endswith(b".txt") else {}).read_from_tar(
+                    name,
+                    "file",
+                    "samples",
+                ).line_reader_from_key(
+                    "samples", "sample", from_memory=True).sample_transform(
+                        self.process_csv_row).prefetch(
+                            n_threads,
+                            n_threads)  # TODO: check where to prefetch
+            .read_from_tar(name, "audio_file", "audio",
+                           prefix=prefix).load_audio(
+                               "audio", from_memory=True,
+                               output_key="input").tokenize(
+                                   "transcript",
+                                   trie,
+                                   ignore_unk=True,
+                                   output_key="target").shape(
+                                       "input", "input_length",
+                                       0).squeeze("input",
+                                                  -1)  # %1s, one channel
         )
         if target_pad:
             self.dataset = self.dataset.pad("target", 0, 1, 1,
                                             1)  # pad target with silence
         self.dataset = self.dataset.shape("target", "target_length", 0)
         # prefetch all data and then bufferize them
-        self.dataset = self.dataset.prefetch(
-            n_threads, n_threads).to_buffer()
+        self.dataset = self.dataset.prefetch(n_threads, n_threads).to_buffer()
         end = time.time()
-        print(
-            f'    time for initializing the dataset buffer: {end - start}')
+        print(f'    time for initializing the dataset buffer: {end - start}')
         start = time.time()
 
         self.durations, self.client_ids = zip(
@@ -77,9 +76,10 @@ class LibriSpeechDataset:
         self.durations = np.array(self.durations)
         self.client_ids = np.array(self.client_ids)
 
-        print("Dataset total (h) duration",
-              np.sum(self.durations) / 16000 / 60 /
-              60)  # TODO: Check that now there is exact match as duration now is computed w/o padding
+        print(
+            "Dataset total (h) duration",
+            np.sum(self.durations) / 16000 / 60 / 60
+        )  # TODO: Check that now there is exact match as duration now is computed w/o padding
 
         start = time.time()
 
@@ -221,16 +221,21 @@ class MlxDataUserDataset(Dataset):
         dataset = dataset.to_stream()
         if self._dynamic_batching_key:
             dataset = dataset.dynamic_batch(
-                500, # stream_buffer_size
+                500,  # stream_buffer_size
                 self._dynamic_batching_key,
                 max_data_size=batch_size,
                 shuffle=True,
-                pad={"input": 0, "target": trie.search("@").id},
+                pad={
+                    "input": 0,
+                    "target": trie.search("@").id
+                },
             )
         else:
-            dataset = dataset.batch(
-                batch_size, pad={"input": 0, "target": trie.search("@").id}
-            )
+            dataset = dataset.batch(batch_size,
+                                    pad={
+                                        "input": 0,
+                                        "target": trie.search("@").id
+                                    })
         yield from dataset
 
     # TODO: Modified but didn't test so far.
@@ -304,8 +309,7 @@ def create_federated_dataset(split,
         trie=trie,
         n_threads=8,
         target_pad=False,
-        dynamic_batching_key="input"
-        if batch_policy == "dynamic" else None)
+        dynamic_batching_key="input" if batch_policy == "dynamic" else None)
     if make_federated:
         user_ids = dataset.get_user_ids()
         make_dataset_fn = dataset.make_dataset_fn
@@ -326,8 +330,7 @@ def get_timing(split='train-clean-100', max_runs_over_data=2, cohort_size=10):
     trie = construct_eng_char_trie_for_ctc('')
 
     start = time.time()
-    federated_dataset, user_ids = create_federated_dataset(
-        split, trie)
+    federated_dataset, user_ids = create_federated_dataset(split, trie)
 
     end = time.time()
     initial_time = end - start
@@ -388,10 +391,9 @@ print(
 )
 print("Federated dataset example with dynamic batching")
 batch_size = 384000
-federated_dataset, user_ids = create_federated_dataset(
-    split='dev-clean',
-    trie=trie,
-    batch_policy="dynamic")
+federated_dataset, user_ids = create_federated_dataset(split='dev-clean',
+                                                       trie=trie,
+                                                       batch_policy="dynamic")
 
 # Iterate through one cohort of size 5
 cohort = federated_dataset.get_cohort(5)
@@ -412,10 +414,9 @@ print(
 )
 print("Federated dataset example with static batching")
 batch_size = 5
-federated_dataset, user_ids = create_federated_dataset(
-    split='dev-clean',
-    trie=trie,
-    batch_policy="static")
+federated_dataset, user_ids = create_federated_dataset(split='dev-clean',
+                                                       trie=trie,
+                                                       batch_policy="static")
 
 # Iterate through one cohort of size 5
 cohort = federated_dataset.get_cohort(5)

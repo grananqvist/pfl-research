@@ -1,8 +1,7 @@
 import argparse
 import logging
-
-import argparse
-import logging
+import os
+from uuid import uuid4
 
 import numpy as np
 import torch
@@ -16,7 +15,6 @@ from utils.argument_parsing import (
     get_algorithm,
     maybe_inject_arguments_from_config,
     parse_mechanism,
-    parse_weighting_strategy,
 )
 from utils.callback.pytorch import CentralLRDecay
 from utils.logging import init_logging
@@ -30,11 +28,13 @@ from pfl.callback import (
     TrackBestOverallMetrics,
     WandbCallback,
 )
+from pfl.hyperparam import NNEvalHyperParams, NNTrainHyperParams
 from pfl.model.pytorch import PyTorchModel
 from pfl.privacy import CentrallyAppliedPrivacyMechanism
 
 from ..argument_parsing import add_asr_arguments
 from ..utils import construct_eng_char_trie_for_ctc
+
 
 def main():
     init_logging(logging.DEBUG)
@@ -82,12 +82,98 @@ def main():
     logger.info('Constructing the trie')
     trie = construct_eng_char_trie_for_ctc(arguments.additional_chars)
 
-
     # Create federated training and a central val dataset. Validation federated
     # dataset is not currently used.
     logger.info('Preparing the datasets')
-    training_federated_dataset, central_data = get_datasets(arguments, tokenizer=trie, stored_datasets=None)
+    training_federated_dataset, central_data = get_datasets(
+        arguments, tokenizer=trie, stored_datasets=None)
     val_federated_dataset = None
+
+    # TODO: Add the real model, otherwise this crashes right now
+    pytorch_model = get_model_pytorch(arguments)
+
+    params = [p for p in pytorch_model.parameters() if p.requires_grad]
+    if arguments.central_optimizer == 'adam':  # TODO: Add other optimizers
+        # Hyperparameters for stability, see S. Reddi et al. 2020 Appendix C.1.
+        central_optimizer = torch.optim.Adam(params,
+                                             arguments.learning_rate,
+                                             eps=arguments.adaptivity_degree,
+                                             betas=(0.9, 0.99))
+    else:
+        assert arguments.central_optimizer == 'sgd'
+        central_optimizer = torch.optim.SGD(params, arguments.learning_rate)
+
+    model = PyTorchModel(model=pytorch_model,
+                         local_optimizer_create=torch.optim.SGD,
+                         central_optimizer=central_optimizer)
+
+    postprocessors = [
+        local_privacy,
+        CentrallyAppliedPrivacyMechanism(central_privacy)
+    ]
+
+    backend = SimulatedBackend(training_data=training_federated_dataset,
+                               val_data=val_federated_dataset,
+                               postprocessors=postprocessors)
+
+    algorithm, algorithm_params, algorithm_callbacks = get_algorithm(arguments)
+
+    model_train_params = NNTrainHyperParams(
+        local_learning_rate=arguments.local_learning_rate,
+        local_num_epochs=arguments.local_num_epochs,
+        local_batch_size=arguments.local_batch_size)
+
+    model_eval_params = NNEvalHyperParams(
+        local_batch_size=arguments.central_eval_batch_size)
+
+    callbacks = [
+        StopwatchCallback(),
+        CentralEvaluationCallback(central_data,
+                                  model_eval_params=model_eval_params,
+                                  frequency=arguments.evaluation_frequency),
+        AggregateMetricsToDisk('./metrics.csv'),
+        TrackBestOverallMetrics(
+            lower_is_better_metric_names=['Central val | perplexity']),
+    ]
+    if arguments.central_lr_num_warmup_iterations > 0:
+        central_lr_warmup_cb = CentralLRDecay(
+            arguments.learning_rate,
+            arguments.learning_rate,
+            arguments.central_num_iterations,
+            arguments.central_lr_num_warmup_iterations,
+            linear_warmup=True)
+        callbacks.append(central_lr_warmup_cb)
+    if arguments.fedsgd_after_amount_trained is not None:
+        raise NotImplementedError(
+            "TODO: rdar://109165050 Implement DecayToFedSGD "
+            "as an adaptive hyperparameter")
+
+    if arguments.restore_model_path is not None:
+        model.load(arguments.restore_model_path)
+        logger.info(f'Restored model from {arguments.restore_model_path}')
+
+    callbacks.extend(algorithm_callbacks)
+
+    if arguments.save_model_path is not None:
+        callbacks.append(ModelCheckpointingCallback(arguments.save_model_path))
+
+    if arguments.wandb_project_id:
+        callbacks.append(
+            WandbCallback(
+                wandb_project_id=arguments.wandb_project_id,
+                wandb_experiment_name=os.environ.get('WANDB_TASK_ID',
+                                                     str(uuid4())),
+                # List of dicts to one dict.
+                wandb_config=dict(vars(arguments)),
+                tags=os.environ.get('WANDB_TAGS', 'empty-tag').split(','),
+                group=os.environ.get('WANDB_GROUP', None)))
+
+    model = algorithm.run(algorithm_params=algorithm_params,
+                          backend=backend,
+                          model=model,
+                          model_train_params=model_train_params,
+                          model_eval_params=model_eval_params,
+                          callbacks=callbacks)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 from mlx.data.core import CharTrie
 
+
 def construct_eng_char_trie_for_ctc(additional_chars):
     trie = CharTrie()
     trie.insert("@")  # blank

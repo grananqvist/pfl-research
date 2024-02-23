@@ -29,38 +29,33 @@ def add_asr_arguments(argument_parser):
         type=str,
         default="train-clean-100",
         help='Tar dataset file with the training data. '
-             'The path is relative to data_path.')
+        'The path is relative to data_path.')
     argument_parser.add_argument(
         '--evaluation_splits',
         nargs='+',
-        default=[
-            "dev-clean", "dev-other", "test-clean", "test-other"],
+        default=["dev-clean", "dev-other", "test-clean", "test-other"],
         help='List of data splits to use for evaluation on the server. '
-             'E.g., "test-clean test-other".')
+        'E.g., "test-clean test-other".')
 
     # Model arguments
+    argument_parser.add_argument('--cape',
+                                 action=store_bool,
+                                 default=True,
+                                 help='If enabled, use cape embedding.')
     argument_parser.add_argument(
-        '--cape',
-        action=store_bool,
-        default=True,
-        help='If enabled, use cape embedding.')
-    argument_parser.add_argument(
-        "--layer_drop",
-        type=float,
-        default=0.3,
+        "--layer_drop", type=float, default=0.3,
         help='Model layer drop.')  # TODO: Describe better
-    argument_parser.add_argument(
-        "--dropout",
-        type=float,
-        default=0.3,
-        help='Dropout.')  # TODO: Describe better
+    argument_parser.add_argument("--dropout",
+                                 type=float,
+                                 default=0.3,
+                                 help='Dropout.')  # TODO: Describe better
     argument_parser.add_argument(
         "--additional_chars",
         default=None,
         type=str,
         help='Use these additional characters to construct the trie used for '
-             'tokenization. Models with different characters are currently '
-             'incompatible. E.g. "-ü".')
+        'tokenization. Models with different characters are currently '
+        'incompatible. E.g. "-ü".')
 
     # Training and evaluation arguments
 
