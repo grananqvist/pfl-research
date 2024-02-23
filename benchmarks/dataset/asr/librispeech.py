@@ -12,20 +12,16 @@ def make_librispeech_datasets(
             data_path: str,
             training_split: str,
             evaluation_splits: List[str],
-            max_target_length: int,
             tokenizer: Any,
             dynamic_batching: bool,
             stored_datasets: Optional[Dict],
-            target_pad: bool = False,
-            seed: int = 42):
+            target_pad: bool = False):
     logger.info(f'Going to preprocess split {training_split} of librispeech dataset')
     dataset = ASRDataset(
         dataset='librispeech',
         data_path=data_path,
         split=training_split,
-        tokenizer=tokenizer,
-        max_target_length=400,
-        seed=seed,
+        trie=tokenizer,
         target_pad=target_pad,
         n_threads=4,
         stored_datasets=stored_datasets,
@@ -43,9 +39,7 @@ def make_librispeech_datasets(
             dataset='librispeech',
             data_path=data_path,
             split=split,
-            tokenizer=tokenizer,
-            max_target_length=400,
-            seed=seed,
+            trie=tokenizer,
             target_pad=target_pad,
             n_threads=4,
             stored_datasets=stored_datasets,

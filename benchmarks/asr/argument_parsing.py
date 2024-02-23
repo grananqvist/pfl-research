@@ -37,12 +37,6 @@ def add_asr_arguments(argument_parser):
             "dev-clean", "dev-other", "test-clean", "test-other"],
         help='List of data splits to use for evaluation on the server. '
              'E.g., "test-clean test-other".')
-    argument_parser.add_argument(
-        '--max_target_length',
-        type=int,
-        default=500, # TODO: Change to 400 from paper if it makes no difference.
-        help='Maximum number of target tokens per sample.',
-    )
 
     # Model arguments
     argument_parser.add_argument(

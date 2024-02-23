@@ -193,9 +193,9 @@ class MlxDataUserDataset(Dataset):
                  dynamic_batching_key: Optional[str] = None):
         self._raw_data = raw_data
         self._dynamic_batching_key = dynamic_batching_key
-        if dynamic_batching_key:
-            self._dynamic_batching_values = np.array(
-                [item[dynamic_batching_key].item() for item in raw_data])
+        # if dynamic_batching_key:
+        #     self._dynamic_batching_values = np.array(
+        #         [item[dynamic_batching_key].item() for item in raw_data])
         self._user_id = user_id
         self._metadata = metadata or {}
         self._train_kwargs = train_kwargs or {}
@@ -228,7 +228,7 @@ class MlxDataUserDataset(Dataset):
                 pad={"input": 0, "target": trie.search("@").id},
             )
         else:
-            dataset = dataset.stream_batch(
+            dataset = dataset.batch(
                 batch_size, pad={"input": 0, "target": trie.search("@").id}
             )
         yield from dataset

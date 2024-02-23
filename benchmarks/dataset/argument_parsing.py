@@ -245,7 +245,6 @@ def get_datasets(
             evaluation_splits=args.evaluation_splits,
             tokenizer=kwargs['tokenizer'],
             stored_datasets=kwargs['stored_datasets'],
-            max_target_length=args.max_target_length,
             dynamic_batching=args.local_batch_strategy == 'dynamic',
         )
     else:
