@@ -29,9 +29,9 @@ from pfl.callback import (
     WandbCallback,
 )
 from pfl.hyperparam import NNEvalHyperParams, NNTrainHyperParams
+from pfl.metrics import StringMetricName
 from pfl.model.pytorch import PyTorchModel
 from pfl.privacy import CentrallyAppliedPrivacyMechanism
-from pfl.metrics import StringMetricName
 
 from ..argument_parsing import add_asr_arguments
 from ..utils import construct_eng_char_trie_for_ctc
@@ -131,24 +131,21 @@ def main():
     for index, central_data_dataset in enumerate(central_data):
         split = metadata['evaluation_splits'][index]
         logger.info(f'EVALUATION SPLIT: {split}')
-        evaluation_callbacks.append(CentralEvaluationCallback(
-            central_data_dataset,
-            model_eval_params=model_eval_params,
-            frequency=arguments.evaluation_frequency,
-            format_fn=lambda n, split=split: StringMetricName(f"{split} | {n}")
-        ))
+        evaluation_callbacks.append(
+            CentralEvaluationCallback(central_data_dataset,
+                                      model_eval_params=model_eval_params,
+                                      frequency=arguments.evaluation_frequency,
+                                      format_fn=lambda n, split=split:
+                                      StringMetricName(f"{split} | {n}")))
 
-    callbacks = (
-        [
-            StopwatchCallback()
-        ] +
-        evaluation_callbacks +
-        [
-            AggregateMetricsToDisk('./metrics.csv'),
-            # TrackBestOverallMetrics(
-            #     lower_is_better_metric_names=['Central val | perplexity']),
-        ]
-    )
+    callbacks = [
+        StopwatchCallback(), *evaluation_callbacks,
+        AggregateMetricsToDisk('./metrics.csv')
+        # TODO: Add WER and TER here when ready.
+        # TrackBestOverallMetrics(
+        #     lower_is_better_metric_names=['Central val | perplexity']),
+    ]
+    # TODO: Deal with LR decay/warmup.
     # if arguments.central_lr_num_warmup_iterations > 0:
     #     central_lr_warmup_cb = CentralLRDecay(
     #         arguments.learning_rate,

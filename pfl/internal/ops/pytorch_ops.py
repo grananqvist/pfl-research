@@ -44,7 +44,7 @@ def get_default_device():
 
 
 def setup_amp(
-        amp_dtype: Optional[torch.dtype], grad_scaling: bool
+    amp_dtype: Optional[torch.dtype], grad_scaling: bool
 ) -> Tuple[Optional[torch.amp.autocast], Optional[torch.cuda.amp.GradScaler]]:
     """
     Setup `torch.amp.autocast` context and `torch.cuda.amp.GradScaler` for

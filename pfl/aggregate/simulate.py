@@ -137,7 +137,8 @@ class SimulatedBackend(Backend):
                 math.floor(
                     np.random.uniform(cohort_size, overshoot_cohort_size)))
 
-        print('population:', population, 'is_train:', population == Population.TRAIN)
+        print('population:', population, 'is_train:',
+              population == Population.TRAIN)
         selected_dataset = self._training_dataset if population == Population.TRAIN else self._val_dataset
         num_users_trained = 0
         num_total_datapoints = Weighted(0, 0)

@@ -250,7 +250,6 @@ class MlxDataUserDataset(Dataset):
             yield dataset
 
         def get_dynamic_batch_sizes(batch_size, dynamic_batching_values):
-            dataset = self._raw_data
             batch_sizes = []
             current_max_duration = 0
             current_batch_size = 0
@@ -289,8 +288,11 @@ class MlxDataUserDataset(Dataset):
         #         },
         #     )
         if self._dynamic_batching_key:
-            dynamic_batching_values = [x['input_length'] for x in self._raw_data]
-            batch_sizes = get_dynamic_batch_sizes(batch_size, dynamic_batching_values)
+            dynamic_batching_values = [
+                x['input_length'] for x in self._raw_data
+            ]
+            batch_sizes = get_dynamic_batch_sizes(batch_size,
+                                                  dynamic_batching_values)
             dataset = dataset.batch(batch_sizes)
         else:
             dataset = dataset.batch(batch_size,
@@ -327,8 +329,8 @@ class MlxDataUserDataset(Dataset):
         left_slice = range(0, split_index)
         right_slice = range(split_index, data_length)
 
-        left_raw_data = raw_data_as_array.perm(left_slice)
-        right_raw_data = raw_data_as_array.perm(right_slice)
+        left_raw_data = self._raw_data.perm(left_slice)
+        right_raw_data = self._raw_data.perm(right_slice)
         train_dataset = MlxDataUserDataset(
             dx.buffer_from_vector(left_raw_data),
             trie=self._trie,
@@ -350,7 +352,7 @@ class MlxDataUserDataset(Dataset):
         return train_dataset, val_dataset
 
     def get_worker_partition(self) -> 'Dataset':
-#        print('self._raw_data:', self._raw_data)
+        #        print('self._raw_data:', self._raw_data)
         partition_range = get_ops().distributed.distribute_range(len(self))
         print('partition_range:', partition_range)
         return MlxDataUserDataset(

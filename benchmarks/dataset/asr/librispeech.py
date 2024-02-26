@@ -18,7 +18,8 @@ def make_librispeech_datasets(data_path: str,
                               stored_datasets: Optional[Dict],
                               target_pad: bool = False):
     logger.info(
-        f'Going to preprocess split {training_split} of librispeech dataset (dynamic batching: {dynamic_batching})')
+        f'Going to preprocess split {training_split} of librispeech dataset (dynamic batching: {dynamic_batching})'
+    )
     dataset = ASRDataset(dataset='librispeech',
                          data_path=data_path,
                          split=training_split,
@@ -35,7 +36,8 @@ def make_librispeech_datasets(data_path: str,
                                         user_sampler=user_sampler)
 
     logger.info(
-        f'Going to preprocess split {validation_split} of librispeech dataset (dynamic batching: {dynamic_batching})')
+        f'Going to preprocess split {validation_split} of librispeech dataset (dynamic batching: {dynamic_batching})'
+    )
     dataset = ASRDataset(dataset='librispeech',
                          data_path=data_path,
                          split=validation_split,
@@ -50,7 +52,6 @@ def make_librispeech_datasets(data_path: str,
     val_user_sampler = MinimizeReuseUserSampler(val_user_ids)
     val_dataset = FederatedDataset(make_dataset_fn=make_val_dataset_fn,
                                    user_sampler=val_user_sampler)
-
 
     central_data = []
     for split in evaluation_splits:
