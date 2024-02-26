@@ -137,6 +137,7 @@ class SimulatedBackend(Backend):
                 math.floor(
                     np.random.uniform(cohort_size, overshoot_cohort_size)))
 
+        print('population:', population, 'is_train:', population == Population.TRAIN)
         selected_dataset = self._training_dataset if population == Population.TRAIN else self._val_dataset
         num_users_trained = 0
         num_total_datapoints = Weighted(0, 0)
@@ -144,6 +145,10 @@ class SimulatedBackend(Backend):
         user_metrics = Zero
 
         server_statistics = None
+
+        print('selected_dataset:', selected_dataset)
+        if selected_dataset is None:
+            return False, Metrics()
 
         for user_dataset, local_seed in selected_dataset.get_cohort(
                 cohort_size):

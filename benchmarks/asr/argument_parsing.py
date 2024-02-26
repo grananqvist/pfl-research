@@ -28,13 +28,18 @@ def add_asr_arguments(argument_parser):
         '--training_split',
         type=str,
         default="train-clean-100",
-        help='Tar dataset file with the training data. '
-        'The path is relative to data_path.')
+        help='Data split to use for training the model using PFL.')
+    argument_parser.add_argument(
+        '--validation_split',
+        type=str,
+        default="dev-clean",
+        help='Data split to use for validating the model in a federated setting.'
+    )
     argument_parser.add_argument(
         '--evaluation_splits',
         nargs='+',
         default=["dev-clean", "dev-other", "test-clean", "test-other"],
-        help='List of data splits to use for evaluation on the server. '
+        help='List of data splits to use for central evaluation on the server. '
         'E.g., "test-clean test-other".')
 
     # Model arguments
@@ -65,6 +70,41 @@ def add_asr_arguments(argument_parser):
         type=str,
         choices=['dynamic', 'static'],
         help='Batch strategy to use for local training.')
+
+    argument_parser.add_argument(
+         '--amp_dtype',
+         type=str,
+         default='float32',
+         choices=['float32', 'float16', 'bfloat16'],
+         help='Float format in mixed precision training.')
+
+    argument_parser.add_argument(
+         '--grad_scaling',
+         action=store_bool,
+         default=False,
+         help='Whether enable gradient scaling when using'
+         ' mixed precision training.')
+
+    argument_parser.add_argument(
+         '--model_dtype_same_as_amp',
+         action=store_bool,
+         default=False,
+         help='Cast the model weights precision to the same as used in '
+         'autocast. This saves memory but may cause divergence due to '
+         'lower precision.')
+
+    argument_parser.add_argument(
+         '--grad_accumulation_steps',
+         type=int,
+         default=1,
+         help='Effective local batch size is local batch size '
+         'multiplied by this number.')
+
+    argument_parser.add_argument(
+         '--use_torch_compile',
+         action=store_bool,
+         default=False,
+         help='Whether to use `torch.compile` on the PyTorch module.')
 
     # TODO: Add LR decay and warmup arguments (sever, optionally local)
 

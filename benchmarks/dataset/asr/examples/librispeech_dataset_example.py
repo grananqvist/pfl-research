@@ -406,6 +406,8 @@ for user_dataset, _ in cohort:
         print(
             f"\t\tinput.shape: {x['input'].shape}   target.shape: {x['target'].shape}   total audio: {np.prod(x['input'].shape)}"
         )
+        if idx == 0:
+            print(f"x['target']: {x['target']}")
         if idx == 2:
             break
 

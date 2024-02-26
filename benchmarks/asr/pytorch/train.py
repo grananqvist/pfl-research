@@ -31,6 +31,7 @@ from pfl.callback import (
 from pfl.hyperparam import NNEvalHyperParams, NNTrainHyperParams
 from pfl.model.pytorch import PyTorchModel
 from pfl.privacy import CentrallyAppliedPrivacyMechanism
+from pfl.metrics import StringMetricName
 
 from ..argument_parsing import add_asr_arguments
 from ..utils import construct_eng_char_trie_for_ctc
@@ -85,9 +86,8 @@ def main():
     # Create federated training and a central val dataset. Validation federated
     # dataset is not currently used.
     logger.info('Preparing the datasets')
-    training_federated_dataset, central_data = get_datasets(
-        arguments, tokenizer=trie, stored_datasets=None)
-    val_federated_dataset = None
+    training_federated_dataset, val_federated_dataset, central_data, metadata = get_datasets(
+        arguments, trie=trie, stored_datasets=None)
 
     # TODO: Add the real model, otherwise this crashes right now
     pytorch_model = get_model_pytorch(arguments)
@@ -112,6 +112,7 @@ def main():
         CentrallyAppliedPrivacyMechanism(central_privacy)
     ]
 
+    # TODO: Fix
     backend = SimulatedBackend(training_data=training_federated_dataset,
                                val_data=val_federated_dataset,
                                postprocessors=postprocessors)
@@ -126,27 +127,40 @@ def main():
     model_eval_params = NNEvalHyperParams(
         local_batch_size=arguments.central_eval_batch_size)
 
-    callbacks = [
-        StopwatchCallback(),
-        CentralEvaluationCallback(central_data,
-                                  model_eval_params=model_eval_params,
-                                  frequency=arguments.evaluation_frequency),
-        AggregateMetricsToDisk('./metrics.csv'),
-        TrackBestOverallMetrics(
-            lower_is_better_metric_names=['Central val | perplexity']),
-    ]
-    if arguments.central_lr_num_warmup_iterations > 0:
-        central_lr_warmup_cb = CentralLRDecay(
-            arguments.learning_rate,
-            arguments.learning_rate,
-            arguments.central_num_iterations,
-            arguments.central_lr_num_warmup_iterations,
-            linear_warmup=True)
-        callbacks.append(central_lr_warmup_cb)
-    if arguments.fedsgd_after_amount_trained is not None:
-        raise NotImplementedError(
-            "TODO: rdar://109165050 Implement DecayToFedSGD "
-            "as an adaptive hyperparameter")
+    evaluation_callbacks = []
+    for index, central_data_dataset in enumerate(central_data):
+        split = metadata['evaluation_splits'][index]
+        logger.info(f'EVALUATION SPLIT: {split}')
+        evaluation_callbacks.append(CentralEvaluationCallback(
+            central_data_dataset,
+            model_eval_params=model_eval_params,
+            frequency=arguments.evaluation_frequency,
+            format_fn=lambda n, split=split: StringMetricName(f"{split} | {n}")
+        ))
+
+    callbacks = (
+        [
+            StopwatchCallback()
+        ] +
+        evaluation_callbacks +
+        [
+            AggregateMetricsToDisk('./metrics.csv'),
+            # TrackBestOverallMetrics(
+            #     lower_is_better_metric_names=['Central val | perplexity']),
+        ]
+    )
+    # if arguments.central_lr_num_warmup_iterations > 0:
+    #     central_lr_warmup_cb = CentralLRDecay(
+    #         arguments.learning_rate,
+    #         arguments.learning_rate,
+    #         arguments.central_num_iterations,
+    #         arguments.central_lr_num_warmup_iterations,
+    #         linear_warmup=True)
+    #     callbacks.append(central_lr_warmup_cb)
+    # if arguments.fedsgd_after_amount_trained is not None:
+    #     raise NotImplementedError(
+    #         "TODO: rdar://109165050 Implement DecayToFedSGD "
+    #         "as an adaptive hyperparameter")
 
     if arguments.restore_model_path is not None:
         model.load(arguments.restore_model_path)

@@ -150,9 +150,8 @@ def parse_draw_num_datapoints_per_user(
 def get_datasets(
     args: argparse.Namespace,
     **kwargs,
-) -> Tuple[FederatedDatasetBase, Union[
-        FederatedDatasetBase, List[FederatedDatasetBase]], Dataset, Dict[str,
-                                                                         Any]]:
+) -> Tuple[FederatedDatasetBase, FederatedDatasetBase, Union[
+        Dataset, List[Dataset]], Dict[str, Any]]:
     """
     Create a federated dataset for training, a federated dataset for evalution
     and a central dataset for central evaluation.
@@ -240,12 +239,13 @@ def get_datasets(
             max_num_user_images=args.max_num_user_images)
     elif args.dataset == 'librispeech':
         from .asr.librispeech import make_librispeech_datasets
-        assert 'tokenizer' in kwargs
+        assert 'trie' in kwargs
         datasets = make_librispeech_datasets(
             data_path=args.data_path,
             training_split=args.training_split,
+            validation_split=args.validation_split,
             evaluation_splits=args.evaluation_splits,
-            tokenizer=kwargs['tokenizer'],
+            trie=kwargs['trie'],
             stored_datasets=kwargs['stored_datasets'],
             dynamic_batching=args.local_batch_strategy == 'dynamic',
         )

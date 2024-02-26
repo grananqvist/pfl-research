@@ -17,7 +17,7 @@ def add_model_arguments(
         '--model_name',
         choices=[
             'simple_cnn', 'simple_dnn', 'resnet18', 'lm_lstm',
-            'lm_transformer', 'multi_label_cnn'
+            'lm_transformer', 'multi_label_cnn', 'asr_ctc_transformer'
         ],
         default='simple_cnn',
         help='Which model to train. See models.py for definitions.')
@@ -189,6 +189,8 @@ def get_model_pytorch(args: argparse.Namespace):
         model = pytorch.multi_label_cnn(args.model_type, args.num_classes,
                                         args.channel_mean,
                                         args.channel_stddevs, args.pretrained)
+    elif model_name == 'asr_ctc_transformer':
+        model = pytorch.asr_transformer.make_pytorch_dummy_model()
     else:
         raise TypeError(f'Model {model_name} not implemented for PyTorch.')
     return model

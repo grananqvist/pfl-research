@@ -175,6 +175,8 @@ class ASRDataset:
 
     def make_dataset_fn(self, user_id):
         dataset = self.get_user_dataset(user_id)
+        # TODO: Should also get rid of unneeded fields 'audio', 'audio_file', and 'user_id'.
+        # print(f'make_dataset_fn: size={dataset.size()}  self._dynamic_batching_key={self._dynamic_batching_key}')
         return MlxDataUserDataset(
             dataset,
             user_id=user_id,
@@ -183,6 +185,7 @@ class ASRDataset:
 
     def full_dataset(self):
         dataset = self.dataset
+        # TODO: Should also get rid of unneeded fields 'audio', 'audio_file', and 'user_id'.
         return MlxDataUserDataset(
             dataset,
             dynamic_batching_key=self._dynamic_batching_key,
@@ -225,14 +228,12 @@ class MlxDataUserDataset(Dataset):
                  dynamic_batching_key: Optional[str] = None):
         self._raw_data = raw_data
         self._dynamic_batching_key = dynamic_batching_key
-        if dynamic_batching_key:
-            self._dynamic_batching_values = np.array(
-                [item[dynamic_batching_key].item() for item in raw_data])
         self._user_id = user_id
         self._metadata = metadata or {}
         self._train_kwargs = train_kwargs or {}
         self._eval_kwargs = eval_kwargs or {}
         self._shuffle = shuffle
+        self._trie = trie
 
     def __len__(self):
         """
@@ -241,32 +242,61 @@ class MlxDataUserDataset(Dataset):
         return self._raw_data.size()
 
     def iter(self, batch_size: Optional[int]):  # noqa: A003
+        # logger.info(f'Batching iterator got batch_size={batch_size}')
         if batch_size is None:
             # No batch size, so consider entire dataset as a single batch.
             batch_size = len(self)
             dataset = self._raw_data.batch(batch_size=batch_size)
             yield dataset
 
+        def get_dynamic_batch_sizes(batch_size, dynamic_batching_values):
+            dataset = self._raw_data
+            batch_sizes = []
+            current_max_duration = 0
+            current_batch_size = 0
+            for this_value in dynamic_batching_values:
+                new_max = max(current_max_duration, this_value)
+                new_batch = current_batch_size + 1
+                # TODO: if the duration of one sample audio is longer than
+                #  the batch size, we create a batch with a single member,
+                #  possibly leading to issues.
+                if new_batch * new_max > batch_size and current_batch_size > 0:
+                    batch_sizes.append(current_batch_size)
+                    # print('new batch duration:', current_max_duration * current_batch_size,
+                    #       '   batch size:', current_batch_size)
+                    current_batch_size = 0
+                    current_max_duration = 0
+                current_batch_size += 1
+                current_max_duration = max(current_max_duration, this_value)
+            if current_batch_size > 0:
+                batch_sizes.append(current_batch_size)
+
+            return batch_sizes
+
         dataset = self._raw_data
         if self._shuffle:
             dataset = dataset.shuffle()
-        dataset = dataset.to_stream()
+        # dataset = dataset.to_stream()#.filter_key('audio_file').filter_key('user_id').filter_key('audio')
+        # if self._dynamic_batching_key:
+        #     dataset = dataset.dynamic_batch(
+        #         buffer_size=500,  # stream_buffer_size
+        #         key=self._dynamic_batching_key,
+        #         max_data_size=batch_size,
+        #         shuffle=False,
+        #         pad={
+        #             "input": 0,
+        #             "target": self._trie.search("@").id
+        #         },
+        #     )
         if self._dynamic_batching_key:
-            dataset = dataset.dynamic_batch(
-                buffer_size=500,  # stream_buffer_size
-                key=self._dynamic_batching_key,
-                max_data_size=batch_size,
-                shuffle=False,
-                pad={
-                    "input": 0,
-                    "target": self.trie.search("@").id
-                },
-            )
+            dynamic_batching_values = [x['input_length'] for x in self._raw_data]
+            batch_sizes = get_dynamic_batch_sizes(batch_size, dynamic_batching_values)
+            dataset = dataset.batch(batch_sizes)
         else:
             dataset = dataset.batch(batch_size,
                                     pad={
                                         "input": 0,
-                                        "target": self.trie.search("@").id
+                                        "target": self._trie.search("@").id
                                     })
         yield from dataset
 
@@ -297,13 +327,11 @@ class MlxDataUserDataset(Dataset):
         left_slice = range(0, split_index)
         right_slice = range(split_index, data_length)
 
-        raw_data_as_array = np.array(self._raw_data)
-
-        left_raw_data = raw_data_as_array[left_slice]
-        right_raw_data = raw_data_as_array[right_slice]
+        left_raw_data = raw_data_as_array.perm(left_slice)
+        right_raw_data = raw_data_as_array.perm(right_slice)
         train_dataset = MlxDataUserDataset(
             dx.buffer_from_vector(left_raw_data),
-            trie=self.trie,
+            trie=self._trie,
             user_id=self.user_id,
             metadata=self.metadata,
             train_kwargs=self.train_kwargs,
@@ -312,7 +340,7 @@ class MlxDataUserDataset(Dataset):
             dynamic_batching_key=self._dynamic_batching_key)
         val_dataset = MlxDataUserDataset(
             dx.buffer_from_vector(right_raw_data),
-            trie=self.trie,
+            trie=self._trie,
             user_id=self.user_id,
             metadata=self.metadata,
             train_kwargs=self.train_kwargs,
@@ -322,11 +350,12 @@ class MlxDataUserDataset(Dataset):
         return train_dataset, val_dataset
 
     def get_worker_partition(self) -> 'Dataset':
+#        print('self._raw_data:', self._raw_data)
         partition_range = get_ops().distributed.distribute_range(len(self))
+        print('partition_range:', partition_range)
         return MlxDataUserDataset(
-            trie=self.trie,
-            raw_data=dx.buffer_from_vector(
-                np.array(self._raw_data)[partition_range]),
+            trie=self._trie,
+            raw_data=self._raw_data.perm(partition_range),
             train_kwargs=self.train_kwargs,
             eval_kwargs=self.eval_kwargs,
             shuffle=self._shuffle,
