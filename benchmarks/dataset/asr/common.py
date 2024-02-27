@@ -36,8 +36,7 @@ class ASRDataset:
                 stored_datasets=stored_datasets,
                 n_threads=n_threads,
                 target_pad=target_pad,
-                dynamic_batching_key='input_length'
-                if dynamic_batching else None,
+                dynamic_batching_key=('input' if dynamic_batching else None),
             )
         else:
             raise ValueError(f'Unknown dataset {dataset}')
@@ -275,22 +274,29 @@ class MlxDataUserDataset(Dataset):
         dataset = self._raw_data
         if self._shuffle:
             dataset = dataset.shuffle()
+
+        # print('dataset max input length:', np.max([x['input_length'].item() for x in dataset]))
+        # print('users:', set([x['user_id'].item() for x in dataset]))
+        #
         # dataset = dataset.to_stream()#.filter_key('audio_file').filter_key('user_id').filter_key('audio')
         # if self._dynamic_batching_key:
+        #     print(f'dynamic_batch uses self._dynamic_batching_key={self._dynamic_batching_key}, batch_size={batch_size}')
         #     dataset = dataset.dynamic_batch(
-        #         buffer_size=500,  # stream_buffer_size
+        #         buffer_size=1024,  # stream buffer_size
         #         key=self._dynamic_batching_key,
         #         max_data_size=batch_size,
-        #         shuffle=False,
+        #         shuffle=True, # TODO: Shuffle here not before the condition.
         #         pad={
         #             "input": 0,
         #             "target": self._trie.search("@").id
         #         },
+        #         num_threads=4,
         #     )
         if self._dynamic_batching_key:
             dynamic_batching_values = [
-                x['input_length'] for x in self._raw_data
+                x[self._dynamic_batching_key].shape[0] for x in self._raw_data
             ]
+            # print('dynamic_batching_values:', dynamic_batching_values)
             batch_sizes = get_dynamic_batch_sizes(batch_size,
                                                   dynamic_batching_values)
             dataset = dataset.batch(batch_sizes)
