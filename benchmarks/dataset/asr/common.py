@@ -40,8 +40,9 @@ class ASRDataset:
             )
         elif dataset == 'cv-en-v13':
             self.initialize_common_voice(
-                name=os.path.join(data_path, 'cv-corpus-13.0-2023-03-09-en.tar'),
-                prefix=f'cv-corpus-13.0-2023-03-09/en',
+                name=os.path.join(data_path,
+                                  'cv-corpus-13.0-2023-03-09-en.tar'),
+                prefix='cv-corpus-13.0-2023-03-09/en',
                 split=split,
                 trie=trie,
                 stored_datasets=stored_datasets,
@@ -115,8 +116,8 @@ class ASRDataset:
         start = time.time()
 
         self.durations, self.client_ids = zip(
-            *([item['input_length'].item(), bytes(item['user_id'])]
-              for item in self.dataset))
+            *([item['input_length'].item(),
+               bytes(item['user_id'])] for item in self.dataset))
 
         end = time.time()
         logger.info(
@@ -149,7 +150,6 @@ class ASRDataset:
         logger.info(
             f'Time for grouping and other postprocessing: {end - start}')
 
-
     def initialize_common_voice(
             self,
             name: str,
@@ -157,8 +157,8 @@ class ASRDataset:
             split: str,
             trie: dx.core.CharTrie,
             stored_datasets,  # TODO: Do we only need this for the central dataset?
-            n_threads:int = -1,
-            target_pad:bool = False,
+            n_threads: int = -1,
+            target_pad: bool = False,
             dynamic_batching_key: Optional[str] = None):
         assert trie is not None
 
@@ -169,19 +169,28 @@ class ASRDataset:
             self.dataset = stored_datasets[name]
         else:
             start = time.time()
-            self.dataset = (
-                dx.buffer_from_vector([{'file': bytes(f'{prefix}/{split}.tsv', 'utf-8')}])
-                    .read_from_tar(name, 'file', 'samples')
-                    .to_stream()
-                    .line_reader_from_key('samples', 'sample', from_memory=True)
-                    .prefetch(n_threads, n_threads)
-                    .sample_transform(self.common_voice_process_csv_row)
-                    .read_from_tar(name, "audio_file", "audio", prefix=f'{prefix}/clips')
-                    .load_audio("audio", from_memory=True, output_key="input", sample_rate=16000)
-                    .tokenize("transcript", trie, ignore_unk=True, output_key="target")
-                    .shape("input", "input_length", 0)
-                    .squeeze("input", -1)
-            )
+            self.dataset = (dx.buffer_from_vector([{
+                'file':
+                bytes(f'{prefix}/{split}.tsv', 'utf-8')
+            }]).read_from_tar(
+                name, 'file', 'samples').to_stream().line_reader_from_key(
+                    'samples', 'sample', from_memory=True).prefetch(
+                        n_threads, n_threads).sample_transform(
+                            self.common_voice_process_csv_row).read_from_tar(
+                                name,
+                                "audio_file",
+                                "audio",
+                                prefix=f'{prefix}/clips').load_audio(
+                                    "audio",
+                                    from_memory=True,
+                                    output_key="input",
+                                    sample_rate=16000).tokenize(
+                                        "transcript",
+                                        trie,
+                                        ignore_unk=True,
+                                        output_key="target").shape(
+                                            "input", "input_length",
+                                            0).squeeze("input", -1))
             if target_pad:
                 self.dataset = self.dataset.pad('target', 0, 1, 1,
                                                 1)  # pad target with silence
@@ -201,14 +210,18 @@ class ASRDataset:
 
         print('First 3 items of self.dataset')
         for index in range(3):
-            print(f"self.dataset[index]['user_id']: {bytes(self.dataset[index]['user_id'])}")
-            print(f"self.dataset[index]['input_length']: {self.dataset[index]['input_length']}   type: {type(self.dataset[index]['input_length'])}")
+            print(
+                f"self.dataset[index]['user_id']: {bytes(self.dataset[index]['user_id'])}"
+            )
+            print(
+                f"self.dataset[index]['input_length']: {self.dataset[index]['input_length']}   type: {type(self.dataset[index]['input_length'])}"
+            )
 
         start = time.time()
 
         self.durations, self.client_ids = zip(
-            *([item['input_length'].item(), bytes(item['user_id'])]
-              for item in self.dataset))
+            *([item['input_length'].item(),
+               bytes(item['user_id'])] for item in self.dataset))
 
         end = time.time()
         logger.info(
@@ -240,7 +253,6 @@ class ASRDataset:
         end = time.time()
         logger.info(
             f'Time for grouping and other postprocessing: {end - start}')
-
 
     @staticmethod
     def librispeech_process_csv_row(sample):
@@ -264,7 +276,6 @@ class ASRDataset:
             "user_id": user_id
         }
 
-
     @staticmethod
     def common_voice_process_csv_row(sample):
         # Split the line
@@ -277,9 +288,9 @@ class ASRDataset:
         return {
             'user_id': str_list[0],
             'audio_file': str_list[1],
-            'transcript': str_list[2].lower(),  # TODO: More preprocessing here?
+            'transcript':
+            str_list[2].lower(),  # TODO: More preprocessing here?
         }
-
 
     def get_user_ids(self):
         return self.clients_unique

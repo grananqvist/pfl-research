@@ -57,7 +57,8 @@ def make_cv_datasets(data_path: str,
     central_data = []
     for split in evaluation_splits:
         logger.info(
-            f'Going to preprocess split {split} of common-voice dataset (dynamic batching: {dynamic_batching})')
+            f'Going to preprocess split {split} of common-voice dataset (dynamic batching: {dynamic_batching})'
+        )
         dataset = ASRDataset(dataset=f'cv-{lang}-v13',
                              data_path=data_path,
                              split=split,
