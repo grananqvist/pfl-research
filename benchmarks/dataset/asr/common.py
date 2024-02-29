@@ -38,6 +38,17 @@ class ASRDataset:
                 target_pad=target_pad,
                 dynamic_batching_key=('input' if dynamic_batching else None),
             )
+        elif dataset == 'cv-en-v13':
+            self.initialize_common_voice(
+                name=os.path.join(data_path, 'cv-corpus-13.0-2023-03-09-en.tar'),
+                prefix=f'cv-corpus-13.0-2023-03-09/en',
+                split=split,
+                trie=trie,
+                stored_datasets=stored_datasets,
+                n_threads=n_threads,
+                target_pad=target_pad,
+                dynamic_batching_key=('input' if dynamic_batching else None),
+            )
         else:
             raise ValueError(f'Unknown dataset {dataset}')
 
@@ -68,7 +79,7 @@ class ASRDataset:
                     "samples",
                 ).line_reader_from_key(
                     "samples", "sample", from_memory=True).sample_transform(
-                        self.process_csv_row).prefetch(
+                        self.librispeech_process_csv_row).prefetch(
                             n_threads,
                             n_threads)  # TODO: check where to prefetch
                 .read_from_tar(name, "audio_file", "audio",
@@ -104,7 +115,7 @@ class ASRDataset:
         start = time.time()
 
         self.durations, self.client_ids = zip(
-            *([item['input_length'].item(), item['user_id'].item()]
+            *([item['input_length'].item(), bytes(item['user_id'])]
               for item in self.dataset))
 
         end = time.time()
@@ -138,8 +149,101 @@ class ASRDataset:
         logger.info(
             f'Time for grouping and other postprocessing: {end - start}')
 
+
+    def initialize_common_voice(
+            self,
+            name: str,
+            prefix: str,
+            split: str,
+            trie: dx.core.CharTrie,
+            stored_datasets,  # TODO: Do we only need this for the central dataset?
+            n_threads:int = -1,
+            target_pad:bool = False,
+            dynamic_batching_key: Optional[str] = None):
+        assert trie is not None
+
+        self._dynamic_batching_key = dynamic_batching_key
+
+        # update stored_datasets
+        if stored_datasets is not None and name in stored_datasets:
+            self.dataset = stored_datasets[name]
+        else:
+            start = time.time()
+            self.dataset = (
+                dx.buffer_from_vector([{'file': bytes(f'{prefix}/{split}.tsv', 'utf-8')}])
+                    .read_from_tar(name, 'file', 'samples')
+                    .to_stream()
+                    .line_reader_from_key('samples', 'sample', from_memory=True)
+                    .prefetch(n_threads, n_threads)
+                    .sample_transform(self.common_voice_process_csv_row)
+                    .read_from_tar(name, "audio_file", "audio", prefix=f'{prefix}/clips')
+                    .load_audio("audio", from_memory=True, output_key="input", sample_rate=16000)
+                    .tokenize("transcript", trie, ignore_unk=True, output_key="target")
+                    .shape("input", "input_length", 0)
+                    .squeeze("input", -1)
+            )
+            if target_pad:
+                self.dataset = self.dataset.pad('target', 0, 1, 1,
+                                                1)  # pad target with silence
+
+            self.dataset = self.dataset.shape('target', 'target_length', 0)
+
+            # prefetch all data and then bufferize them
+            self.dataset = self.dataset.prefetch(n_threads,
+                                                 n_threads).to_buffer()
+
+            end = time.time()
+            logger.info(
+                f'Time for initializing the dataset buffer: {end - start}')
+
+            if stored_datasets is not None:
+                stored_datasets[name] = self.dataset
+
+        print('First 3 items of self.dataset')
+        for index in range(3):
+            print(f"self.dataset[index]['user_id']: {bytes(self.dataset[index]['user_id'])}")
+            print(f"self.dataset[index]['input_length']: {self.dataset[index]['input_length']}   type: {type(self.dataset[index]['input_length'])}")
+
+        start = time.time()
+
+        self.durations, self.client_ids = zip(
+            *([item['input_length'].item(), bytes(item['user_id'])]
+              for item in self.dataset))
+
+        end = time.time()
+        logger.info(
+            f'Time for extracting durations and client ids: {end - start}')
+
+        # duration_perm = np.argsort(np.array(durations))[rank::num_nodes]
+        # durations = np.array(durations)[duration_perm]
+        # client_ids = np.array(client_ids)[duration_perm]
+        # dataset = dataset.perm(duration_perm)
+        self.durations = np.array(self.durations)
+        self.client_ids = np.array(self.client_ids)
+
+        # TODO: Check why not exact match for total duration e.g. for train-clean-100
+        logger.info(
+            f'Dataset total (h) duration {np.sum(self.durations) / 16000 / 60 / 60}'
+        )
+
+        start = time.time()
+
+        self.clients_unique = np.unique(self.client_ids)
+        logger.info(f'Total {len(self.clients_unique)} clients')
+
+        self.df = pd.DataFrame({
+            "duration": self.durations,
+            "client": self.client_ids
+        })
+        self.df_group = self.df.groupby("client", sort=False).groups
+
+        end = time.time()
+        logger.info(
+            f'Time for grouping and other postprocessing: {end - start}')
+
+
     @staticmethod
-    def process_csv_row(sample):
+    def librispeech_process_csv_row(sample):
         # Split the line
         file_part, transcript = bytes(sample["sample"]).split(b" ", 1)
 
@@ -152,13 +256,30 @@ class ASRDataset:
         transcript = transcript.lower()
 
         # User id
-        user_id = int(parts[-3])
+        user_id = parts[-3]
 
         return {
             "audio_file": audio_path,
             "transcript": transcript,
             "user_id": user_id
         }
+
+
+    @staticmethod
+    def common_voice_process_csv_row(sample):
+        # Split the line
+        str_list = bytes(sample['sample']).split(b'\t')
+        # print('str_list:', str_list)
+        if str_list[0] == b'client_id':
+            assert str_list[1] == b'path'
+            assert str_list[2] == b'sentence'
+            return {}  # skip the header
+        return {
+            'user_id': str_list[0],
+            'audio_file': str_list[1],
+            'transcript': str_list[2].lower(),  # TODO: More preprocessing here?
+        }
+
 
     def get_user_ids(self):
         return self.clients_unique

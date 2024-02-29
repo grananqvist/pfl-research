@@ -20,7 +20,8 @@ def add_dataset_arguments(
                         choices=[
                             'cifar10', 'cifar10_iid', 'femnist',
                             'femnist_digits', 'reddit', 'flair', 'flair_iid',
-                            'flair_pytorch', 'stackoverflow', 'librispeech'
+                            'flair_pytorch', 'stackoverflow', 'librispeech',
+                            'common-voice-en-v13'
                         ],
                         default='cifar10',
                         help='Which dataset to train on')
@@ -242,6 +243,19 @@ def get_datasets(
         assert 'trie' in kwargs
         datasets = make_librispeech_datasets(
             data_path=args.data_path,
+            training_split=args.training_split,
+            validation_split=args.validation_split,
+            evaluation_splits=args.evaluation_splits,
+            trie=kwargs['trie'],
+            stored_datasets=kwargs['stored_datasets'],
+            dynamic_batching=args.local_batch_strategy == 'dynamic',
+        )
+    elif args.dataset == 'common-voice-en-v13':
+        from .asr.common_voice import make_cv_datasets
+        assert 'trie' in kwargs
+        datasets = make_cv_datasets(
+            data_path=args.data_path,
+            lang='en',
             training_split=args.training_split,
             validation_split=args.validation_split,
             evaluation_splits=args.evaluation_splits,
