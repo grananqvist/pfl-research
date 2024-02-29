@@ -41,6 +41,18 @@ def add_asr_arguments(argument_parser):
         default=["dev-clean", "dev-other", "test-clean", "test-other"],
         help='List of data splits to use for central evaluation on the server. '
         'E.g., "test-clean test-other".')
+    argument_parser.add_argument("--max_sample_audio_length",
+                                 type=int,
+                                 default=None,
+                                 help='Maximum length of audio for a sample '
+                                 'to be used in training or evaluation. '
+                                 'All samples with longer audio will be '
+                                 'filtered out.')
+    argument_parser.add_argument(
+        "--num_threads_data_processing",
+        type=int,
+        default=4,
+        help='Number of threads for processing the data.')
 
     # Model arguments
     argument_parser.add_argument('--cape',

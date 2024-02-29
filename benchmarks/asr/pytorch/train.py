@@ -130,7 +130,7 @@ def main():
     evaluation_callbacks = []
     for index, central_data_dataset in enumerate(central_data):
         split = metadata['evaluation_splits'][index]
-        logger.info(f'EVALUATION SPLIT: {split}')
+        # logger.info(f'EVALUATION SPLIT: {split}')
         evaluation_callbacks.append(
             CentralEvaluationCallback(central_data_dataset,
                                       model_eval_params=model_eval_params,

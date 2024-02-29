@@ -249,6 +249,8 @@ def get_datasets(
             trie=kwargs['trie'],
             stored_datasets=kwargs['stored_datasets'],
             dynamic_batching=args.local_batch_strategy == 'dynamic',
+            max_sample_audio_length=args.max_sample_audio_length,
+            num_threads=args.num_threads_data_processing,
         )
     elif args.dataset == 'common-voice-en-v13':
         from .asr.common_voice import make_cv_datasets
@@ -262,6 +264,8 @@ def get_datasets(
             trie=kwargs['trie'],
             stored_datasets=kwargs['stored_datasets'],
             dynamic_batching=args.local_batch_strategy == 'dynamic',
+            max_sample_audio_length=args.max_sample_audio_length,
+            num_threads=args.num_threads_data_processing,
         )
     else:
         raise ValueError(f'{args.dataset} is not supported')

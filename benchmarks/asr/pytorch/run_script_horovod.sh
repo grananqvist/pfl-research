@@ -4,6 +4,7 @@
 
 export PYTHONPATH="."
 
+horovodrun --gloo -np 2 -H localhost:2 \
 python -m asr.pytorch.train \
     --data_path ~/.cache/mlx.data/librispeech \
     --dataset librispeech \

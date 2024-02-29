@@ -17,7 +17,9 @@ def make_cv_datasets(data_path: str,
                      trie: Any,
                      dynamic_batching: bool,
                      stored_datasets: Optional[Dict],
-                     target_pad: bool = False):
+                     target_pad: bool = False,
+                     max_sample_audio_length: Optional[int] = None,
+                     num_threads: int = 1):
     logger.info(
         f'Going to preprocess split {training_split} of common-voice dataset (dynamic batching: {dynamic_batching})'
     )
@@ -26,9 +28,10 @@ def make_cv_datasets(data_path: str,
                          split=training_split,
                          trie=trie,
                          target_pad=target_pad,
-                         n_threads=4,
+                         n_threads=num_threads,
                          stored_datasets=stored_datasets,
-                         dynamic_batching=dynamic_batching)
+                         dynamic_batching=dynamic_batching,
+                         max_sample_audio_length=max_sample_audio_length)
     user_ids = dataset.get_user_ids()
     print(f'total {len(user_ids)} users')
     make_dataset_fn = dataset.make_dataset_fn
@@ -44,9 +47,10 @@ def make_cv_datasets(data_path: str,
                          split=validation_split,
                          trie=trie,
                          target_pad=target_pad,
-                         n_threads=4,
+                         n_threads=num_threads,
                          stored_datasets=stored_datasets,
-                         dynamic_batching=dynamic_batching)
+                         dynamic_batching=dynamic_batching,
+                         max_sample_audio_length=max_sample_audio_length)
     val_user_ids = dataset.get_user_ids()
     print(f'total {len(user_ids)} users')
     make_val_dataset_fn = dataset.make_dataset_fn
@@ -64,9 +68,10 @@ def make_cv_datasets(data_path: str,
                              split=split,
                              trie=trie,
                              target_pad=target_pad,
-                             n_threads=4,
+                             n_threads=num_threads,
                              stored_datasets=stored_datasets,
-                             dynamic_batching=dynamic_batching)
+                             dynamic_batching=dynamic_batching,
+                             max_sample_audio_length=max_sample_audio_length)
         central_data.append(dataset.full_dataset())
 
     metadata = {

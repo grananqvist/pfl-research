@@ -13,19 +13,22 @@ from pfl.model.pytorch import PyTorchModel  # pylint: disable=unused-import
 
 logger = logging.getLogger(name=__name__)
 
+USE_MLX_DYNAMIC_BATCHING = False
+
 
 class ASRDataset:
 
-    def __init__(
+    def __init__(  # TODO: Remove defaults as appropriate
         self,
         dataset: str,
         data_path: str,
         split: str,
         trie: dx.core.CharTrie,
-        target_pad: bool = False,
-        n_threads: int = 4,
+        target_pad: bool,
+        n_threads: int,
         dynamic_batching: bool = True,
         stored_datasets: Optional[Dict] = None,
+        max_sample_audio_length: Optional[int] = None,
     ):
         self.trie = trie
         if dataset == 'librispeech':
@@ -37,6 +40,7 @@ class ASRDataset:
                 n_threads=n_threads,
                 target_pad=target_pad,
                 dynamic_batching_key=('input' if dynamic_batching else None),
+                max_sample_audio_length=max_sample_audio_length,
             )
         elif dataset == 'cv-en-v13':
             self.initialize_common_voice(
@@ -49,19 +53,22 @@ class ASRDataset:
                 n_threads=n_threads,
                 target_pad=target_pad,
                 dynamic_batching_key=('input' if dynamic_batching else None),
+                max_sample_audio_length=max_sample_audio_length,
             )
         else:
             raise ValueError(f'Unknown dataset {dataset}')
 
-    def initialize_librispeech(
-            self,
-            name: str,
-            prefix: str,
-            trie: dx.core.CharTrie,
-            stored_datasets,  # TODO: Do we only need this for the central dataset?
-            n_threads=-1,
-            target_pad=False,
-            dynamic_batching_key=None):
+    def initialize_librispeech(  # TODO: Remove defaults
+        self,
+        name: str,
+        prefix: str,
+        trie: dx.core.CharTrie,
+        stored_datasets,  # TODO: Do we only need this for the central dataset?
+        n_threads=-1,
+        target_pad=False,
+        dynamic_batching_key=None,
+        max_sample_audio_length: Optional[int] = None,
+    ):
         assert trie is not None
 
         self._dynamic_batching_key = dynamic_batching_key
@@ -96,6 +103,10 @@ class ASRDataset:
                                            0).squeeze("input",
                                                       -1)  # %1s, one channel
             )
+            if max_sample_audio_length is not None:
+                self.dataset = self.dataset.sample_transform(
+                    lambda sample: sample if sample['input_length'].item(
+                    ) <= max_sample_audio_length else {})
             if target_pad:
                 self.dataset = self.dataset.pad('target', 0, 1, 1,
                                                 1)  # pad target with silence
@@ -117,16 +128,15 @@ class ASRDataset:
 
         self.durations, self.client_ids = zip(
             *([item['input_length'].item(),
-               bytes(item['user_id'])] for item in self.dataset))
+               bytes(item['user_id'])] for item in self.dataset
+              if 'user_id' in item))
+
+        print('max audio length:', np.max(self.durations))
 
         end = time.time()
         logger.info(
             f'Time for extracting durations and client ids: {end - start}')
 
-        # duration_perm = np.argsort(np.array(durations))[rank::num_nodes]
-        # durations = np.array(durations)[duration_perm]
-        # client_ids = np.array(client_ids)[duration_perm]
-        # dataset = dataset.perm(duration_perm)
         self.durations = np.array(self.durations)
         self.client_ids = np.array(self.client_ids)
 
@@ -150,7 +160,7 @@ class ASRDataset:
         logger.info(
             f'Time for grouping and other postprocessing: {end - start}')
 
-    def initialize_common_voice(
+    def initialize_common_voice(  # TODO: Remove defaults
             self,
             name: str,
             prefix: str,
@@ -159,7 +169,8 @@ class ASRDataset:
             stored_datasets,  # TODO: Do we only need this for the central dataset?
             n_threads: int = -1,
             target_pad: bool = False,
-            dynamic_batching_key: Optional[str] = None):
+            dynamic_batching_key: Optional[str] = None,
+            max_sample_audio_length: Optional[int] = None):
         assert trie is not None
 
         self._dynamic_batching_key = dynamic_batching_key
@@ -191,6 +202,15 @@ class ASRDataset:
                                         output_key="target").shape(
                                             "input", "input_length",
                                             0).squeeze("input", -1))
+            if max_sample_audio_length is not None:
+                self.dataset = self.dataset.sample_transform(
+                    lambda sample: sample if sample['input_length'].item(
+                    ) <= max_sample_audio_length else {})
+            print(
+                'max audio length:',
+                np.max([
+                    sample['input_length'].item() for sample in self.dataset
+                ]))
             if target_pad:
                 self.dataset = self.dataset.pad('target', 0, 1, 1,
                                                 1)  # pad target with silence
@@ -227,10 +247,6 @@ class ASRDataset:
         logger.info(
             f'Time for extracting durations and client ids: {end - start}')
 
-        # duration_perm = np.argsort(np.array(durations))[rank::num_nodes]
-        # durations = np.array(durations)[duration_perm]
-        # client_ids = np.array(client_ids)[duration_perm]
-        # dataset = dataset.perm(duration_perm)
         self.durations = np.array(self.durations)
         self.client_ids = np.array(self.client_ids)
 
@@ -404,35 +420,39 @@ class MlxDataUserDataset(Dataset):
             return batch_sizes
 
         dataset = self._raw_data
-        if self._shuffle:
-            dataset = dataset.shuffle()
+        # if self._shuffle:
+        #     dataset = dataset.shuffle()
 
         # print('dataset max input length:', np.max([x['input_length'].item() for x in dataset]))
         # print('users:', set([x['user_id'].item() for x in dataset]))
         #
-        # dataset = dataset.to_stream()#.filter_key('audio_file').filter_key('user_id').filter_key('audio')
-        # if self._dynamic_batching_key:
-        #     print(f'dynamic_batch uses self._dynamic_batching_key={self._dynamic_batching_key}, batch_size={batch_size}')
-        #     dataset = dataset.dynamic_batch(
-        #         buffer_size=1024,  # stream buffer_size
-        #         key=self._dynamic_batching_key,
-        #         max_data_size=batch_size,
-        #         shuffle=True, # TODO: Shuffle here not before the condition.
-        #         pad={
-        #             "input": 0,
-        #             "target": self._trie.search("@").id
-        #         },
-        #         num_threads=4,
-        #     )
+
         if self._dynamic_batching_key:
-            dynamic_batching_values = [
-                x[self._dynamic_batching_key].shape[0] for x in self._raw_data
-            ]
-            # print('dynamic_batching_values:', dynamic_batching_values)
-            batch_sizes = get_dynamic_batch_sizes(batch_size,
-                                                  dynamic_batching_values)
-            dataset = dataset.batch(batch_sizes)
+            if USE_MLX_DYNAMIC_BATCHING:
+                # print(f'dynamic_batch uses self._dynamic_batching_key={self._dynamic_batching_key}, batch_size={batch_size}')
+                dataset = dataset.to_stream().dynamic_batch(
+                    buffer_size=8,  # stream buffer_size
+                    key=self._dynamic_batching_key,
+                    max_data_size=batch_size,
+                    shuffle=True,
+                    pad={
+                        "input": 0,
+                        "target": self._trie.search("@").id
+                    },
+                    num_threads=2,
+                )
+            else:
+                dynamic_batching_values = [
+                    x[self._dynamic_batching_key].shape[0]
+                    for x in self._raw_data
+                ]
+                # print('dynamic_batching_values:', dynamic_batching_values)
+                batch_sizes = get_dynamic_batch_sizes(batch_size,
+                                                      dynamic_batching_values)
+                dataset = dataset.batch(batch_sizes)
         else:
+            if self._shuffle:
+                dataset = dataset.shuffle()
             dataset = dataset.batch(batch_size,
                                     pad={
                                         "input": 0,
@@ -492,7 +512,7 @@ class MlxDataUserDataset(Dataset):
     def get_worker_partition(self) -> 'Dataset':
         #        print('self._raw_data:', self._raw_data)
         partition_range = get_ops().distributed.distribute_range(len(self))
-        print('partition_range:', partition_range)
+        # print('partition_range:', partition_range)
         return MlxDataUserDataset(
             trie=self._trie,
             raw_data=self._raw_data.perm(partition_range),

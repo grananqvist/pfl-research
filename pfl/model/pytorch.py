@@ -343,6 +343,7 @@ class PyTorchModel(StatefulModel):
                     break
                 steps += 1
                 batch = self._prepare_batch(batch)
+                # print('batch shapes:', [(k, v.shape) for k, v in batch.items()])
                 # Update every accumulation steps and the final step
                 kwargs['optimizer_should_update'] = (
                     steps % train_params.grad_accumulation_steps == 0
