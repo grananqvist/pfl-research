@@ -512,7 +512,7 @@ class MlxDataUserDataset(Dataset):
     def get_worker_partition(self) -> 'Dataset':
         #        print('self._raw_data:', self._raw_data)
         partition_range = get_ops().distributed.distribute_range(len(self))
-        # print('partition_range:', partition_range)
+        print('get_worker_partition partition_range:', partition_range, 'total:', len(self))
         return MlxDataUserDataset(
             trie=self._trie,
             raw_data=self._raw_data.perm(partition_range),

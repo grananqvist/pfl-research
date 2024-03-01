@@ -11,13 +11,14 @@ python -m asr.pytorch.train \
     --local_batch_size 384000 \
     --evaluation_frequency 1 \
     --cohort_size 20 \
-    --evaluation_splits dev-clean dev-other test-clean test-other train-clean-100 \
+    --evaluation_splits dev-clean dev-other test-clean test-other \
     --val_cohort_size 10 \
     --central_eval_batch_size 384000 \
     --local_learning_rate 0.01 \
     --central_optimizer adam \
     --learning_rate 0.1 \
     --max_sample_audio_length 384000 \
-    --num_threads_data_processing 2 \
+    --num_threads_data_processing 8 \
     --central_num_iterations 5 \
-    --local_num_epochs 5
+    --local_num_epochs 10 \
+    --dummy_model_size 100
