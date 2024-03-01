@@ -53,11 +53,10 @@ def add_asr_arguments(argument_parser):
         type=int,
         default=4,
         help='Number of threads for processing the data.')
-    argument_parser.add_argument(
-        "--dummy_model_size",
-        type=int,
-        default=1,
-        help='Model size in millions (must be >= 1).')
+    argument_parser.add_argument("--dummy_model_size",
+                                 type=int,
+                                 default=1,
+                                 help='Model size in millions (must be >= 1).')
 
     # Model arguments
     argument_parser.add_argument('--cape',

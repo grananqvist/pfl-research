@@ -53,13 +53,12 @@ if __name__ == '__main__':
             "dev-clean", "dev-other", "test-clean", "test-other",
             "train-clean-100"
         ],
-        description=
-        'List of data splits to download, e.g. "dev-clean dev-other".')
+        help='List of data splits to download, e.g. "dev-clean dev-other".')
     argument_parser.add_argument(
         '--num_threads',
         type=int,
         default=0,
-        description="Number of threads. Set to number of cpus if 0.")
+        help="Number of threads. Set to number of cpus if 0.")
 
     args = argument_parser.parse_args()
 
