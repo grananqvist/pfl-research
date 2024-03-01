@@ -3,8 +3,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from model.numpy.metrics import Perplexity
 
+from model.numpy.metrics import Perplexity
 from pfl.metrics import Weighted
 
 

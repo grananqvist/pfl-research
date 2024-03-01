@@ -188,7 +188,7 @@ class TFModel(StatefulModel):
                 os.path.join(dir_path, self._CENTRAL_OPTIMIZER_CKPT_NAME))
 
     def _load_central_optimizer(self, path: str) -> None:
-        # dummy pass to initialize central optimizer variables
+        # call to initialize central optimizer variables
         self.apply_model_update(
             MappedVectorStatistics({
                 name: tf.zeros_like(variable)
@@ -304,6 +304,9 @@ class TFModel(StatefulModel):
                                     train_params.local_learning_rate)
         num_epochs = (1 if train_params.local_num_epochs is None else
                       train_params.get('local_num_epochs'))
+
+        assert train_params.grad_accumulation_steps == 1, (
+            "Gradient accumulation is not yet supported in TensorFlow")
 
         for _ in range(num_epochs):
             for batch_ix, batch in enumerate(

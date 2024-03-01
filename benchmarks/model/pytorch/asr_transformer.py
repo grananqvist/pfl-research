@@ -1,5 +1,4 @@
 import numpy as np
-from torchsummary import summary
 
 from pfl.internal.ops.pytorch_ops import get_default_device
 from pfl.metrics import Summed, Weighted
@@ -84,22 +83,5 @@ def make_pytorch_dummy_model(size: int = 2):
     print('pytorch_model:', pytorch_model)
     pytorch_total_params = sum(p.numel() for p in pytorch_model.parameters())
     print('Total params:', pytorch_total_params)
-
-    from prettytable import PrettyTable
-
-    def count_parameters(model):
-        table = PrettyTable(["Modules", "Parameters"])
-        total_params = 0
-        for name, parameter in model.named_parameters():
-            if not parameter.requires_grad:
-                continue
-            params = parameter.numel()
-            table.add_row([name, params])
-            total_params += params
-        print(table)
-        print(f"Total Trainable Params: {total_params}")
-        return total_params
-
-    count_parameters(pytorch_model)
 
     return pytorch_model

@@ -548,7 +548,6 @@ class Metrics:
         name_hash = hash(metric_name)
         assert name_hash not in self._hash_to_keyvalue
         self._hash_to_keyvalue[name_hash] = (metric_name, value)
-        self._metric_name = metric_name
 
     def __repr__(self) -> str:
         return repr(self._hash_to_keyvalue)
@@ -570,8 +569,6 @@ class Metrics:
     def __or__(self, other) -> 'Metrics':
         overlap = set(self._hash_to_keyvalue) & set(other._hash_to_keyvalue)
         if overlap != set():
-            print('self._hash_to_keyvalue:', self._hash_to_keyvalue)
-            print('other._hash_to_keyvalue:', other._hash_to_keyvalue)
             raise ValueError(f'Combining two "Metrics" objects that have '
                              f'{len(overlap)} overlapping names: {overlap}')
 

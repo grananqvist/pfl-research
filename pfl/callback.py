@@ -186,7 +186,6 @@ class CentralEvaluationCallback(TrainingProcessCallback[EvaluatableModelType]):
                  frequency: int = 1,
                  distribute_evaluation: bool = True,
                  format_fn: Optional[Callable[[str], MetricName]] = None):
-        # print('dataset:', dataset)
         self._dataset = dataset
         self._model_eval_params = model_eval_params
         self._partial_dataset = dataset.get_worker_partition()
@@ -222,8 +221,6 @@ class CentralEvaluationCallback(TrainingProcessCallback[EvaluatableModelType]):
                                      name_formatting_fn=self._format_fn,
                                      eval_params=self._model_eval_params)
             metrics[datapoints_metric_name] = len(self._dataset)
-
-        # logger.info(f'METRICS: {metrics}')
 
         return (False, metrics)
 

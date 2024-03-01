@@ -141,6 +141,14 @@ class PyTorchModel(StatefulModel):
         self._model_diff: MappedVectorStatistics = MappedVectorStatistics()
 
     @property
+    def amp_context(self) -> Optional[torch.amp.autocast]:
+        return self._amp_context
+
+    @property
+    def grad_scaler(self) -> Optional[torch.cuda.amp.GradScaler]:
+        return self._grad_scaler
+
+    @property
     def allows_distributed_evaluation(self) -> Optional[bool]:
         return self._allows_distributed_evaluation
 
@@ -214,7 +222,7 @@ class PyTorchModel(StatefulModel):
                 os.path.join(dir_path, self._CENTRAL_LR_SCHEDULER_CKPT_NAME))
 
     def _load_central_optimizer(self, path: str) -> None:
-        # dummy pass to initialize central optimizer variables
+        # call to initialize central optimizer variables
         self.apply_model_update(
             MappedVectorStatistics({
                 name: torch.zeros(*variable.shape)
@@ -287,6 +295,23 @@ class PyTorchModel(StatefulModel):
         else:
             return [get_framework_module().to_tensor(data) for data in batch]
 
+    @staticmethod
+    def _get_local_num_steps(train_params: NNTrainHyperParams,
+                             user_data_length: int):
+        # Get the total number of steps in local training
+        num_epochs = (1 if train_params.local_num_epochs is None else
+                      train_params.get('local_num_epochs'))
+        local_batch_size = train_params.get('local_batch_size')
+        if train_params.get('local_num_steps') is not None:
+            num_steps = train_params.get('local_num_steps')
+        else:
+            num_steps = num_epochs
+            if local_batch_size is not None:
+                # Multiply by number of batches per epoch
+                num_steps *= (user_data_length // local_batch_size +
+                              int(user_data_length % local_batch_size != 0))
+        return num_steps
+
     def do_multiple_epochs_of(self, user_dataset: AbstractDatasetType,
                               train_params: NNTrainHyperParams,
                               train_step_fn: Callable, **kwargs) -> None:
@@ -312,44 +337,35 @@ class PyTorchModel(StatefulModel):
             * train_kwargs - the ``train_kwargs`` property from the user
             dataset. With this, you can pass user-specific metadata to local
             training.
+            * train_step_args - an instance of
+            :class:`~pfl.internal.ops.pytorch_ops.PyTorchTrainStepArgs`
+            that contains common arguments for PyTorch local training.
             * kwargs - other keyword arguments that a custom ``train_step_fn``
             might have.
         """
-        kwargs["amp_context"] = self._amp_context
-        kwargs["grad_scaler"] = self._grad_scaler
-        kwargs[
-            "grad_accumulation_steps"] = train_params.grad_accumulation_steps
-        kwargs["max_grad_norm"] = train_params.local_max_grad_norm
-
         num_epochs = (1 if train_params.local_num_epochs is None else
                       train_params.get('local_num_epochs'))
-        local_batch_size = train_params.get('local_batch_size')
-        if train_params.get('local_num_steps') is not None:
-            num_steps = train_params.get('local_num_steps')
-        else:
-            num_steps = num_epochs
-            if local_batch_size is not None:
-                # Multiply by number of batches per epoch
-                num_steps *= (len(user_dataset) // local_batch_size +
-                              int(len(user_dataset) % local_batch_size != 0))
         local_optimizer = self.new_local_optimizer(
             learning_rate=train_params.local_learning_rate)
 
-        steps = 0
         local_optimizer.zero_grad()
+        # Common arguments used in `train_step_fn`
+        train_step_args = pytorch_ops.PyTorchTrainStepArgs(
+            amp_context=self._amp_context or contextlib.nullcontext(),
+            grad_scaler=self._grad_scaler,
+            max_grad_norm=train_params.local_max_grad_norm,
+            grad_accumulation_state=pytorch_ops.GradAccumulationState(
+                self._get_local_num_steps(train_params, len(user_dataset)),
+                train_params.grad_accumulation_steps))
         for _ in range(num_epochs):
-            for batch in user_dataset.iter(local_batch_size):
-                if steps == num_steps:
+            for batch_ix, batch in enumerate(
+                    user_dataset.iter(train_params.get('local_batch_size'))):
+                if batch_ix == train_params.get('local_num_steps'):
                     break
-                steps += 1
                 batch = self._prepare_batch(batch)
-                # print('batch shapes:', [(k, v.shape) for k, v in batch.items()])
-                # Update every accumulation steps and the final step
-                kwargs['optimizer_should_update'] = (
-                    steps % train_params.grad_accumulation_steps == 0
-                    or steps == num_steps)
                 train_step_fn(self._model, local_optimizer, batch,
-                              user_dataset.train_kwargs, **kwargs)
+                              user_dataset.train_kwargs, train_step_args,
+                              **kwargs)
 
     def evaluate(self,
                  dataset: AbstractDatasetType,

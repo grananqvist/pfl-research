@@ -17,7 +17,7 @@ def add_model_arguments(
         '--model_name',
         choices=[
             'simple_cnn', 'simple_dnn', 'resnet18', 'lm_lstm',
-            'lm_transformer', 'multi_label_cnn', 'asr_ctc_transformer'
+            'lm_transformer', 'multi_label_cnn', 'asr_ctc_transformer',
         ],
         default='simple_cnn',
         help='Which model to train. See models.py for definitions.')
@@ -93,6 +93,8 @@ def add_model_arguments(
                             action=store_bool,
                             default=False,
                             help='Use ImageNet pretrained vision model')
+
+    # TODO: Add model arguments for ASR transformer with CTC.
 
     return parser
 

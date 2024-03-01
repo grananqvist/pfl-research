@@ -16,7 +16,6 @@ from utils.argument_parsing import (
     maybe_inject_arguments_from_config,
     parse_mechanism,
 )
-from utils.callback.pytorch import CentralLRDecay
 from utils.logging import init_logging
 
 from pfl.aggregate.simulate import SimulatedBackend

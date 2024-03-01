@@ -1,5 +1,6 @@
 # Copyright © 2023-2024 Apple Inc.
 import tensorflow as tf
+
 from model.tf2.layer import CausalEncoderLayer, PositionalEmbedding
 
 

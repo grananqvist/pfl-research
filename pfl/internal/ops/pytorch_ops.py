@@ -3,6 +3,7 @@
 import contextlib
 import logging
 import os
+from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
@@ -50,6 +51,7 @@ def setup_amp(
     Setup `torch.amp.autocast` context and `torch.cuda.amp.GradScaler` for
     PyTorch native mixed precision training. Gradient scaling is only used
     when training on CUDA.
+
     :param amp_dtype:
         An optional `torch.dtype` indicating the precision level. If set to
         `None` then mix precision training is not enabled.
@@ -426,7 +428,7 @@ def to_tensor(values: Union[List, np.ndarray],
         dtype, str) else dtype
 
     if isinstance(values, torch.Tensor):
-        return values
+        return values.to(device=get_default_device())
 
     tensor = torch.as_tensor(values, dtype=torch_dtype)
     tensor = tensor.to(device=get_default_device())
@@ -506,3 +508,36 @@ def concatenate(tensors: List[torch.Tensor], axis: int) -> torch.Tensor:
         A concatenated tensor.
     """
     return torch.cat(tensors, dim=axis)
+
+
+class GradAccumulationState:
+    """ Track gradient accumulation during local training. """
+
+    def __init__(self, num_steps: int, accumulation_steps: int):
+        self._num_steps = num_steps
+        self._accumulation_steps = accumulation_steps
+        self._steps = 0
+
+    @property
+    def optimizer_should_update(self) -> bool:
+        """ Update every `grad_accumulation_steps` or is the last step """
+        return (self._steps % self._accumulation_steps == 0
+                or self._steps == self._num_steps)
+
+    @property
+    def accumulation_steps(self):
+        return self._accumulation_steps
+
+    def increment(self):
+        self._steps += 1
+
+
+@dataclass(frozen=True)
+class PyTorchTrainStepArgs:
+    """
+    Common args used by different local training algorithms in PyTorch.
+    """
+    amp_context: Union[torch.amp.autocast, contextlib.AbstractContextManager]
+    grad_scaler: Optional[torch.cuda.amp.GradScaler]
+    max_grad_norm: Optional[float]
+    grad_accumulation_state: GradAccumulationState

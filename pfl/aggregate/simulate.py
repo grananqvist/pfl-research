@@ -145,9 +145,6 @@ class SimulatedBackend(Backend):
 
         server_statistics = None
 
-        if selected_dataset is None:
-            return False, Metrics()
-
         for user_dataset, local_seed in selected_dataset.get_cohort(
                 cohort_size):
 
