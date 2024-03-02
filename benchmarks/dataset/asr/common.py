@@ -206,11 +206,6 @@ class ASRDataset:
                 self.dataset = self.dataset.sample_transform(
                     lambda sample: sample if sample['input_length'].item(
                     ) <= max_sample_audio_length else {})
-            print(
-                'max audio length:',
-                np.max([
-                    sample['input_length'].item() for sample in self.dataset
-                ]))
             if target_pad:
                 self.dataset = self.dataset.pad('target', 0, 1, 1,
                                                 1)  # pad target with silence
@@ -225,9 +220,17 @@ class ASRDataset:
             logger.info(
                 f'Time for initializing the dataset buffer: {end - start}')
 
+            print(
+                'max audio length:',
+                np.max([
+                    sample['input_length'].item() for sample in self.dataset
+                ]))
+
+
             if stored_datasets is not None:
                 stored_datasets[name] = self.dataset
 
+        print('self.dataset:', self.dataset)
         print('First 3 items of self.dataset')
         for index in range(3):
             print(
