@@ -205,9 +205,9 @@ class ASRDataset:
 
             self.dataset = dx.buffer_from_vector([{'file': bytes(f'{prefix}/{split}.tsv', 'utf-8')}])
             self.dataset = self.dataset.read_from_tar(name, 'file', 'samples').to_stream()
-            self.dataset = self.dataset.line_reader_from_key('samples', 'sample', from_memory=True)\
-            self.dataset = self.dataset.prefetch(n_threads, n_threads)\
-            self.dataset = self.dataset.sample_transform(self.common_voice_process_csv_row)\
+            self.dataset = self.dataset.line_reader_from_key('samples', 'sample', from_memory=True)
+            self.dataset = self.dataset.prefetch(n_threads, n_threads)
+            self.dataset = self.dataset.sample_transform(self.common_voice_process_csv_row)
             self.dataset = self.dataset.prefetch(n_threads, n_threads).read_from_tar(
                                 name,
                                 "audio_file",
