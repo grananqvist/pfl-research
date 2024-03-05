@@ -21,13 +21,8 @@ def make_pytorch_dummy_model(size: int = 2):
                 torch.nn.Linear(size * 1000, self.output_size),
             )
 
-        def forward(self, input, target, input_length, target_length, audio,
-                    audio_file, user_id, transcript):  # pylint: disable=arguments-differ
-            # a1 = torch.nn.functional.sigmoid(
-            #     torch.matmul(x, self.w1) + self.b1)
-            # a2 = torch.nn.functional.sigmoid(
-            #     torch.matmul(a1, self.w2) + self.b2)
-            # print('x:', x)
+        def forward(self, input, target, input_length, target_length,
+                    user_id, transcript):  # pylint: disable=arguments-differ
             batch_size = input.shape[0]
             x = torch.rand(
                 (batch_size, self.input_size)).to(get_default_device())
@@ -39,8 +34,6 @@ def make_pytorch_dummy_model(size: int = 2):
                  target,
                  input_length,
                  target_length,
-                 audio,
-                 audio_file,
                  user_id,
                  transcript,
                  is_eval=False):
@@ -49,8 +42,8 @@ def make_pytorch_dummy_model(size: int = 2):
             else:
                 self.train()
             mseloss = torch.nn.MSELoss()  #reduction='sum')
-            output = self(input, target, input_length, target_length, audio,
-                          audio_file, user_id, transcript)
+            output = self(input, target, input_length, target_length,
+                          user_id, transcript)
             # print('output:', output)
             desired_output = torch.zeros(output.size()).to(
                 get_default_device())
@@ -58,14 +51,12 @@ def make_pytorch_dummy_model(size: int = 2):
             return mseloss(output, desired_output)
 
         @torch.no_grad()
-        def metrics(self, input, target, input_length, target_length, audio,
-                    audio_file, user_id, transcript):
+        def metrics(self, input, target, input_length, target_length,
+                    user_id, transcript):
             loss_value = self.loss(input,
                                    target,
                                    input_length,
                                    target_length,
-                                   audio,
-                                   audio_file,
                                    user_id,
                                    transcript,
                                    is_eval=True)

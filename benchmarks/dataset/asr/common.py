@@ -29,8 +29,10 @@ class ASRDataset:
         dynamic_batching: bool = True,
         stored_datasets: Optional[Dict] = None,
         max_sample_audio_length: Optional[int] = None,
+        lazy_load_audio: bool = False,
     ):
         self.trie = trie
+        self.lazy_load_audio = lazy_load_audio
         if dataset == 'librispeech':
             self.initialize_librispeech(
                 name=os.path.join(data_path, f'{split}.tar'),
@@ -63,11 +65,13 @@ class ASRDataset:
         name: str,
         prefix: str,
         trie: dx.core.CharTrie,
-        stored_datasets,  # TODO: Do we only need this for the central dataset?
+        # TODO: Unless we have to access same dataset repeatedly, we won't need cache.
+        #   Check final solution.
+        stored_datasets,
         n_threads=-1,
         target_pad=False,
         dynamic_batching_key=None,
-        max_sample_audio_length: Optional[int] = None,
+        max_sample_audio_length: Optional[int] = None, # TODO: Make this work.
     ):
         assert trie is not None
 
@@ -78,31 +82,49 @@ class ASRDataset:
             self.dataset = stored_datasets[name]
         else:
             start = time.time()
-            self.dataset = (
-                dx.files_from_tar(name).to_stream().sample_transform(
-                    lambda s: s if bytes(s["file"]).endswith(b".txt") else {}).
-                read_from_tar(
-                    name,
-                    "file",
-                    "samples",
-                ).line_reader_from_key(
-                    "samples", "sample", from_memory=True).sample_transform(
-                        self.librispeech_process_csv_row).prefetch(
-                            n_threads,
-                            n_threads)  # TODO: check where to prefetch
-                .read_from_tar(name, "audio_file", "audio",
-                               prefix=prefix).load_audio(
-                                   "audio",
-                                   from_memory=True,
-                                   output_key="input").tokenize(
-                                       "transcript",
-                                       trie,
-                                       ignore_unk=True,
-                                       output_key="target").shape(
-                                           "input", "input_length",
-                                           0).squeeze("input",
-                                                      -1)  # %1s, one channel
-            )
+            self.dataset = dx.files_from_tar(name).to_stream()
+            self.dataset = self.dataset.sample_transform(
+                lambda s: s if bytes(s["file"]).endswith(b".txt") else {})
+            self.dataset = self.dataset.read_from_tar(name, "file", "samples")
+            self.dataset = self.dataset.line_reader_from_key("samples", "sample", from_memory=True)
+            self.dataset = self.dataset.sample_transform(self.librispeech_process_csv_row)
+            self.dataset = self.dataset.prefetch(n_threads, n_threads)  # TODO: check where to prefetch
+            self.dataset = self.dataset.read_from_tar(name, "audio_file", "audio", prefix=prefix)
+            self.dataset = self.dataset.load_audio("audio", from_memory=True, output_key="input")
+            self.dataset = self.dataset.filter_key("audio", remove=True)
+            self.dataset = self.dataset.filter_key("audio_file", remove=True)
+            self.dataset = self.dataset.tokenize("transcript", trie, ignore_unk=True, output_key="target")
+            self.dataset = self.dataset.shape("input", "input_length", 0)
+            self.dataset = self.dataset.squeeze("input", -1)  # %1s, one channel
+
+            # self.dataset = (
+            #     dx.files_from_tar(name).to_stream().sample_transform(
+            #         lambda s: s if bytes(s["file"]).endswith(b".txt") else {}).
+            #     read_from_tar(
+            #         name,
+            #         "file",
+            #         "samples",
+            #     ).line_reader_from_key(
+            #         "samples", "sample", from_memory=True).sample_transform(
+            #             self.librispeech_process_csv_row).prefetch(
+            #                 n_threads,
+            #                 n_threads)  # TODO: check where to prefetch
+            #     .read_from_tar(name, "audio_file", "audio",
+            #                    prefix=prefix).load_audio(
+            #                        "audio",
+            #                        from_memory=True,
+            #                        output_key="input")
+            #     .filter_key("audio", remove=True)
+            #     .filter_key("audio_file", remove=True)
+            #     .tokenize(
+            #                            "transcript",
+            #                            trie,
+            #                            ignore_unk=True,
+            #                            output_key="target").shape(
+            #                                "input", "input_length",
+            #                                0).squeeze("input",
+            #                                           -1)  # %1s, one channel
+            # )
             if max_sample_audio_length is not None:
                 self.dataset = self.dataset.sample_transform(
                     lambda sample: sample if sample['input_length'].item(
@@ -180,28 +202,58 @@ class ASRDataset:
             self.dataset = stored_datasets[name]
         else:
             start = time.time()
-            self.dataset = (dx.buffer_from_vector([{
-                'file':
-                bytes(f'{prefix}/{split}.tsv', 'utf-8')
-            }]).read_from_tar(
-                name, 'file', 'samples').to_stream().line_reader_from_key(
-                    'samples', 'sample', from_memory=True).prefetch(
-                        n_threads, n_threads).sample_transform(
-                            self.common_voice_process_csv_row).read_from_tar(
+
+            self.dataset = dx.buffer_from_vector([{'file': bytes(f'{prefix}/{split}.tsv', 'utf-8')}])
+            self.dataset = self.dataset.read_from_tar(name, 'file', 'samples').to_stream()
+            self.dataset = self.dataset.line_reader_from_key('samples', 'sample', from_memory=True)\
+            self.dataset = self.dataset.prefetch(n_threads, n_threads)\
+            self.dataset = self.dataset.sample_transform(self.common_voice_process_csv_row)\
+            self.dataset = self.dataset.prefetch(n_threads, n_threads).read_from_tar(
                                 name,
                                 "audio_file",
                                 "audio",
-                                prefix=f'{prefix}/clips').load_audio(
+                                prefix=f'{prefix}/clips')
+            self.dataset = self.dataset.prefetch(n_threads, n_threads).load_audio(
                                     "audio",
                                     from_memory=True,
                                     output_key="input",
-                                    sample_rate=16000).tokenize(
+                                    sample_rate=16000)
+            self.dataset = self.dataset.filter_key("audio", remove=True)
+            self.dataset = self.dataset.filter_key("audio_file", remove=True)
+            self.dataset = self.dataset.tokenize(
                                         "transcript",
                                         trie,
                                         ignore_unk=True,
-                                        output_key="target").shape(
-                                            "input", "input_length",
-                                            0).squeeze("input", -1))
+                                        output_key="target")
+            self.dataset = self.dataset.shape("input", "input_length", 0)
+            self.dataset = self.dataset.squeeze("input", -1)
+
+
+            # self.dataset = (dx.buffer_from_vector([{
+            #     'file':
+            #     bytes(f'{prefix}/{split}.tsv', 'utf-8')
+            # }]).read_from_tar(
+            #     name, 'file', 'samples').to_stream().line_reader_from_key(
+            #         'samples', 'sample', from_memory=True).prefetch(
+            #             n_threads, n_threads).sample_transform(
+            #                 self.common_voice_process_csv_row).prefetch(n_threads, n_threads).read_from_tar(
+            #                     name,
+            #                     "audio_file",
+            #                     "audio",
+            #                     prefix=f'{prefix}/clips').prefetch(n_threads, n_threads).load_audio(
+            #                         "audio",
+            #                         from_memory=True,
+            #                         output_key="input",
+            #                         sample_rate=16000)
+            #                 .filter_key("audio", remove=True)
+            #                 .filter_key("audio_file", remove=True)
+            #                 .tokenize(
+            #                             "transcript",
+            #                             trie,
+            #                             ignore_unk=True,
+            #                             output_key="target").shape(
+            #                                 "input", "input_length",
+            #                                 0).squeeze("input", -1))
             if max_sample_audio_length is not None:
                 self.dataset = self.dataset.sample_transform(
                     lambda sample: sample if sample['input_length'].item(
@@ -219,6 +271,13 @@ class ASRDataset:
             end = time.time()
             logger.info(
                 f'Time for initializing the dataset buffer: {end - start}')
+
+            # total_audio = 0.0
+            # total_input = 0.0
+            # for item in self.dataset:
+            #     total_audio += item['audio'].nbytes / 1024.0
+            #     total_input += item['input'].nbytes / 1024.0
+            # print(f'ratio audio/input: {total_audio/total_input} = {total_audio} / {total_input}')
 
             print(
                 'max audio length:',
@@ -326,7 +385,9 @@ class ASRDataset:
     def make_dataset_fn(self, user_id):
         dataset = self.get_user_dataset(user_id)
         # TODO: Should also get rid of unneeded fields 'audio', 'audio_file', and 'user_id'.
+        # dataset = dataset.filter_key('audio', remove=True) #.filter_key('user_id')
         # print(f'make_dataset_fn: size={dataset.size()}  self._dynamic_batching_key={self._dynamic_batching_key}')
+        # print(f'local dataset after filtering: {dataset}')
         return MlxDataUserDataset(
             dataset,
             user_id=user_id,
@@ -335,6 +396,8 @@ class ASRDataset:
 
     def full_dataset(self):
         dataset = self.dataset
+        # dataset = dataset.filter_key('audio', remove=True) #.filter_key('user_id')
+        # print(f'full dataset after filtering: {dataset}')
         # TODO: Should also get rid of unneeded fields 'audio', 'audio_file', and 'user_id'.
         return MlxDataUserDataset(
             dataset,
