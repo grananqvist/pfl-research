@@ -11,9 +11,9 @@ python -m asr.pytorch.train \
     --local_batch_size 384000 \
     --evaluation_frequency 1 \
     --cohort_size 20 \
-    --training_split train \
+    --training_split other \
     --validation_split dev \
-    --evaluation_splits dev test other \
+    --evaluation_splits dev test \
     --val_cohort_size 10 \
     --central_eval_batch_size 384000 \
     --local_learning_rate 0.01 \

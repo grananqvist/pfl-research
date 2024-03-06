@@ -1,7 +1,7 @@
 import logging
 import os.path
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import mlx.data as dx
 import numpy as np
@@ -29,10 +29,8 @@ class ASRDataset:
         dynamic_batching: bool = True,
         stored_datasets: Optional[Dict] = None,
         max_sample_audio_length: Optional[int] = None,
-        lazy_load_audio: bool = False,
     ):
         self.trie = trie
-        self.lazy_load_audio = lazy_load_audio
         if dataset == 'librispeech':
             self.initialize_librispeech(
                 name=os.path.join(data_path, f'{split}.tar'),
@@ -59,6 +57,7 @@ class ASRDataset:
             )
         else:
             raise ValueError(f'Unknown dataset {dataset}')
+
 
     def initialize_librispeech(  # TODO: Remove defaults
         self,
@@ -91,6 +90,12 @@ class ASRDataset:
             self.dataset = self.dataset.prefetch(n_threads, n_threads)  # TODO: check where to prefetch
             self.dataset = self.dataset.read_from_tar(name, "audio_file", "audio", prefix=prefix)
             self.dataset = self.dataset.load_audio("audio", from_memory=True, output_key="input")
+
+            # TODO: Remove, debug only
+            # self.dataset = self.dataset.to_buffer()
+            # print(f'Time after decompressing audio files: {time.time() - start}')
+            # exit(42)
+
             self.dataset = self.dataset.filter_key("audio", remove=True)
             self.dataset = self.dataset.filter_key("audio_file", remove=True)
             self.dataset = self.dataset.tokenize("transcript", trie, ignore_unk=True, output_key="target")
@@ -182,6 +187,7 @@ class ASRDataset:
         logger.info(
             f'Time for grouping and other postprocessing: {end - start}')
 
+
     def initialize_common_voice(  # TODO: Remove defaults
             self,
             name: str,
@@ -213,11 +219,23 @@ class ASRDataset:
                                 "audio_file",
                                 "audio",
                                 prefix=f'{prefix}/clips')
-            self.dataset = self.dataset.prefetch(n_threads, n_threads).load_audio(
+
+            # TODO: Remove, debug only
+            # self.dataset = self.dataset.to_buffer()
+            # print(f'Time after loading audio files: {time.time() - start}')
+            # exit(42)
+
+            self.dataset = self.dataset.load_audio(
                                     "audio",
                                     from_memory=True,
                                     output_key="input",
                                     sample_rate=16000)
+
+            # TODO: Remove, debug only
+            # self.dataset = self.dataset.to_buffer()
+            # print(f'Time after decompressing audio files: {time.time() - start}')
+            # exit(42)
+
             self.dataset = self.dataset.filter_key("audio", remove=True)
             self.dataset = self.dataset.filter_key("audio_file", remove=True)
             self.dataset = self.dataset.tokenize(
@@ -227,7 +245,6 @@ class ASRDataset:
                                         output_key="target")
             self.dataset = self.dataset.shape("input", "input_length", 0)
             self.dataset = self.dataset.squeeze("input", -1)
-
 
             # self.dataset = (dx.buffer_from_vector([{
             #     'file':
@@ -258,6 +275,7 @@ class ASRDataset:
                 self.dataset = self.dataset.sample_transform(
                     lambda sample: sample if sample['input_length'].item(
                     ) <= max_sample_audio_length else {})
+
             if target_pad:
                 self.dataset = self.dataset.pad('target', 0, 1, 1,
                                                 1)  # pad target with silence
@@ -272,6 +290,7 @@ class ASRDataset:
             logger.info(
                 f'Time for initializing the dataset buffer: {end - start}')
 
+            # TODO: Remove, debug only
             # total_audio = 0.0
             # total_input = 0.0
             # for item in self.dataset:
