@@ -192,8 +192,7 @@ def get_model_pytorch(args: argparse.Namespace):
                                         args.channel_mean,
                                         args.channel_stddevs, args.pretrained)
     elif model_name == 'asr_ctc_transformer':
-        model = pytorch.asr_transformer.make_pytorch_dummy_model(
-            args.dummy_model_size)
+        model = pytorch.asr_transformer.make_pytorch_dummy_model()
     else:
         raise TypeError(f'Model {model_name} not implemented for PyTorch.')
     return model
