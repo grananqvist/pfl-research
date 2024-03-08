@@ -403,10 +403,6 @@ class ASRDataset:
 
     def make_dataset_fn(self, user_id):
         dataset = self.get_user_dataset(user_id)
-        # TODO: Should also get rid of unneeded fields 'audio', 'audio_file', and 'user_id'.
-        # dataset = dataset.filter_key('audio', remove=True) #.filter_key('user_id')
-        # print(f'make_dataset_fn: size={dataset.size()}  self._dynamic_batching_key={self._dynamic_batching_key}')
-        # print(f'local dataset after filtering: {dataset}')
         return MlxDataUserDataset(
             dataset,
             user_id=user_id,
@@ -415,9 +411,6 @@ class ASRDataset:
 
     def full_dataset(self):
         dataset = self.dataset
-        # dataset = dataset.filter_key('audio', remove=True) #.filter_key('user_id')
-        # print(f'full dataset after filtering: {dataset}')
-        # TODO: Should also get rid of unneeded fields 'audio', 'audio_file', and 'user_id'.
         return MlxDataUserDataset(
             dataset,
             dynamic_batching_key=self._dynamic_batching_key,

@@ -70,4 +70,6 @@ if __name__ == '__main__':
 
     target_dir = os.path.join(datasets.common.CACHE_DIR, "librispeech")
 
+    os.makedirs(target_dir, exist_ok=True)
+
     download_parallel(urls, target_dir)

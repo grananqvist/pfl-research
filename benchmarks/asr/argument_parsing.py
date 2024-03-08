@@ -81,7 +81,7 @@ def add_asr_arguments(argument_parser):
     # Training and evaluation arguments
 
     argument_parser.add_argument(
-        "--local_batch_strategy",
+        "--batch_strategy",
         default='dynamic',
         type=str,
         choices=['dynamic', 'static'],
