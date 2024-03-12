@@ -14,108 +14,7 @@ import enum
 import torch.nn.functional as F
 import logging
 import copy
-from .asr_features import LogMelSpectrumCalculator
-
-
-class WindowType(enum.Enum):
-    Hamming = 0
-    Hanning = 1
-
-
-class FrequencyScale(enum.Enum):
-    MEL = 0
-    LOG10 = 1
-    LINEAR = 2
-
-
-def next_pow_2(n):
-    return 2 ** math.ceil(math.log2(n))
-
-
-def sliding_window_output_length(window, stride, input_length):
-    if type(input_length) == int:
-        return max(input_length - window, 0) // stride + 1
-    else:
-        return torch.maximum(input_length - window, torch.tensor(0)) // stride + 1
-
-
-def num_sample_per_frame(sampling_freq, frame_size_ms):
-    return round(sampling_freq * frame_size_ms / 1000.0)
-
-
-def hertz_to_warped_scale(hz, freqscale):
-    if freqscale == FrequencyScale.MEL:
-        return 2595.0 * torch.log10(torch.tensor(1.0 + hz / 700.0))
-    elif freqscale == FrequencyScale.LOG10:
-        return torch.log10(torch.tensor(hz))
-    elif freqscale == FrequencyScale.LINEAR:
-        return hz
-    else:
-        raise ValueError("invalid freqscale")
-
-
-def warped_to_hertz_scale(wrp, freqscale):
-    if freqscale == FrequencyScale.MEL:
-        return 700.0 * (10 ** (wrp / 2595.0) - 1)
-    elif freqscale == FrequencyScale.LOG10:
-        return torch.pow(10, wrp)
-    elif freqscale == FrequencyScale.LINEAR:
-        return wrp
-    else:
-        raise ValueError("invalid freqscale")
-
-
-def compute_derivative(input, windowlen):
-    norm = (windowlen * (windowlen + 1) * (2 * windowlen + 1)) / 3.0
-    input = F.pad(input, ((windowlen, windowlen), (0, 0)), mode="edge")
-    kernel = torch.arange(-windowlen, windowlen + 1)[:, None]
-    return F.conv2d(input, kernel, padding="valid") / norm
-
-
-def length_to_mask(lengths, max_length):
-    indices = rearrange(torch.arange(max_length), "t -> 1 t").to(lengths.device)
-    return indices < rearrange(lengths, "b -> b 1")  # (batch_size, max_length)
-
-
-# x: NxWxC length: N
-def masked_mean2d(x, x_length, return_mask=False):
-    x_mask = rearrange(length_to_mask(x_length, x.shape[1]), "b t -> b t 1")
-    C = x.shape[2]
-    scale = 1 / (C * torch.maximum(torch.tensor(1), x_length.clone().detach()))
-    scale = scale.to(x.dtype)
-    mean = reduce(x * x_mask, "b t c -> b", "sum") * scale
-    if return_mask:
-        return mean, x_mask
-    else:
-        return mean
-
-
-def length_masked_normalize2d(x, x_length, epsilon=1e-7, return_mask=False):
-    x_mask = rearrange(length_to_mask(x_length, x.shape[1]), "b t -> b t 1")
-    C = x.shape[2]
-    scale = 1 / (C * torch.maximum(torch.tensor(1), x_length.clone().detach()))
-    scale = scale.to(x.dtype)
-    mean = reduce(x * x_mask, "b t c -> b", "sum") * scale
-    x = x - rearrange(mean, "b -> b 1 1")
-    norm = torch.rsqrt(reduce(x * x * x_mask, "b t c -> b", "sum") * scale + epsilon)
-    x = torch.where(x_mask, x * rearrange(norm, "b -> b 1 1"), 0)
-    if return_mask:
-        return x, x_mask
-    else:
-        return x
-
-
-class LengthMaskedNorm2d(nn.Module):
-    def __init__(self, epsilon: float = 1e-7):
-        super().__init__()
-        self.epsilon = epsilon
-        self.scale = torch.nn.Parameter(torch.ones((1,)))
-        self.bias = torch.nn.Parameter(torch.zeros((1,)))
-
-    def forward(self, input, length):
-        res, mask = length_masked_normalize2d(input, length, self.epsilon, True)
-        res = torch.where(mask, res * self.scale + self.bias, 0)
-        return res
+from .asr_features import LogMelSpectrumCalculator, sliding_window_output_length, length_masked_normalize2d, masked_mean2d, length_to_mask, LengthMaskedNorm2d
     
 
 # offset and width should be num_masks x batch_size
@@ -417,9 +316,6 @@ class AsrSelfAttention(nn.Module):
             hc=self.emb_dim // self.num_heads,
         )
 
-        k = rearrange(k, "b t (h hc) -> b h t hc", h=self.num_heads, hc=self.emb_dim // self.num_heads)
-        v = rearrange(v, "b t (h hc) -> b h t hc", h=self.num_heads, hc=self.emb_dim // self.num_heads)
-
         attn_mask = self._get_mask(q, k, kv_length)
             
         if self.training:
@@ -589,7 +485,7 @@ class AsrEncoder(nn.Module):
         in_channels: int = 80,
         kernel: int = 7,
         stride: int = 3,
-        conv_dim: int = 1024,
+        conv_dim: int = 1536,
         pos_embedding_layer = None,
         dropout: float = 0.3,
         layer_dropout: float = 0.3,
@@ -602,6 +498,7 @@ class AsrEncoder(nn.Module):
         ln_norm_type: str = "pre",
     ):
         super().__init__()
+        self.emb_dim = emb_dim
         self._conv_subsample = Conv1dSubsampling(
             in_channels, conv_dim, kernel, stride
         )
@@ -611,7 +508,7 @@ class AsrEncoder(nn.Module):
         self._tf_blocks = nn.ModuleList(
             [
                 AsrTransformerBlock(
-                    emb_dim=emb_dim,
+                    emb_dim=self.emb_dim,
                     mlp_dim=mlp_dim,
                     num_heads=num_heads,
                     dropout=dropout,
@@ -686,14 +583,13 @@ class AsrEncoder(nn.Module):
         return other_items
     
 
-def make_pytorch_dummy_model():
+def make_pytorch_dummy_model(nlabel):
     import torch  # type: ignore
     torch.manual_seed(42)
     from pfl.model.pytorch import PyTorchModel
 
     class TestModel(torch.nn.Module):
-
-        def __init__(self):
+        def __init__(self, nlabel):
             super().__init__()
             self.mfsc_func = AudioPreprocessor()
             self.saug_func = SpecAugment(
@@ -711,12 +607,12 @@ def make_pytorch_dummy_model():
                 freq_scale=30, 
                 positions_delta=0.03)
             pos_embedding_layer.set_content_scale(1.0)
-            self.model = AsrEncoder(pos_embedding_layer=pos_embedding_layer)
+            self.model = AsrEncoder(pos_embedding_layer=pos_embedding_layer, nlabel=nlabel)
             self.loss_func = nn.CTCLoss(reduction="none", zero_infinity=True)
 
         def forward(self, x, x_length, is_eval=False):
             x, x_length = self.mfsc_func(x, x_length)
-            if self.use_saug and not is_eval:
+            if not is_eval:
                 x = self.saug_func(x, x_length)
             return self.model(x, x_length)
 
@@ -733,9 +629,9 @@ def make_pytorch_dummy_model():
             else:
                 self.train()
             
-            output, output_length = self(input, input_length, eval=is_eval)
+            output, output_length = self(input, input_length, is_eval=is_eval)
             output = rearrange(output, "b t c -> t b c")
-            return self.loss_func(output, target, output_length, target_length).mean()
+            return self.loss_func(output, target, output_length.long(), target_length.long()).mean()
 
         @torch.no_grad()
         def metrics(self, input, target, input_length, target_length,
@@ -756,7 +652,7 @@ def make_pytorch_dummy_model():
             print('calculated metrics:', output)
             return output
 
-    pytorch_model = TestModel().to(get_default_device())
+    pytorch_model = TestModel(nlabel=nlabel).to(get_default_device())
 
     print('pytorch_model:', pytorch_model)
     pytorch_total_params = sum(p.numel() for p in pytorch_model.parameters())
