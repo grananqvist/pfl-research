@@ -335,7 +335,7 @@ def get_datasets(
             evaluation_splits=args.evaluation_splits,
             trie=kwargs['trie'],
             stored_datasets=kwargs['stored_datasets'],
-            dynamic_batching=args.local_batch_strategy == 'dynamic',
+            dynamic_batching=args.batch_strategy == 'dynamic',
             max_sample_audio_length=args.max_sample_audio_length,
             num_threads=args.num_threads_data_processing,
         )
@@ -350,7 +350,7 @@ def get_datasets(
             evaluation_splits=args.evaluation_splits,
             trie=kwargs['trie'],
             stored_datasets=kwargs['stored_datasets'],
-            dynamic_batching=args.local_batch_strategy == 'dynamic',
+            dynamic_batching=args.batch_strategy == 'dynamic',
             max_sample_audio_length=args.max_sample_audio_length,
             num_threads=args.num_threads_data_processing,
         )
