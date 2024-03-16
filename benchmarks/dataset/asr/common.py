@@ -1,7 +1,7 @@
 import logging
 import os.path
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Set
 
 import mlx.data as dx
 import numpy as np
@@ -10,6 +10,9 @@ import pandas as pd
 from pfl.data.dataset import Dataset
 from pfl.internal.ops.selector import get_framework_module as get_ops
 from pfl.model.pytorch import PyTorchModel  # pylint: disable=unused-import
+
+from unidecode import unidecode
+import re
 
 logger = logging.getLogger(name=__name__)
 
@@ -45,7 +48,7 @@ class ASRDataset:
         elif dataset == 'cv-en-v13':
             self.initialize_common_voice(
                 name=os.path.join(data_path,
-                                  'cv-corpus-13.0-2023-03-09-en.tar'),
+                                  'cv-corpus-13.0-2023-03-09-flac-en.tar'),
                 prefix='cv-corpus-13.0-2023-03-09/en',
                 split=split,
                 trie=trie,
@@ -218,7 +221,7 @@ class ASRDataset:
                                 name,
                                 "audio_file",
                                 "audio",
-                                prefix=f'{prefix}/clips')
+                                prefix=f'{prefix}/flac-16kHz')
 
             # TODO: Remove, debug only
             # self.dataset = self.dataset.to_buffer()
@@ -228,8 +231,7 @@ class ASRDataset:
             self.dataset = self.dataset.load_audio(
                                     "audio",
                                     from_memory=True,
-                                    output_key="input",
-                                    sample_rate=16000)
+                                    output_key="input")
 
             # TODO: Remove, debug only
             # self.dataset = self.dataset.to_buffer()
@@ -378,15 +380,14 @@ class ASRDataset:
         # Split the line
         str_list = bytes(sample['sample']).split(b'\t')
         # print('str_list:', str_list)
-        if str_list[0] == b'client_id':
-            assert str_list[1] == b'path'
-            assert str_list[2] == b'sentence'
+        if str_list[4] == b'client_id':
+            assert str_list[0] == b'filename'
+            assert str_list[2] == b'transcription'
             return {}  # skip the header
         return {
-            'user_id': str_list[0],
-            'audio_file': str_list[1],
-            'transcript':
-            str_list[2].lower(),  # TODO: More preprocessing here?
+            'user_id': str_list[4],
+            'audio_file': str_list[0],
+            'transcript': str_list[2]
         }
 
     def get_user_ids(self):
@@ -599,3 +600,55 @@ class MlxDataUserDataset(Dataset):
             eval_kwargs=self.eval_kwargs,
             shuffle=self._shuffle,
             dynamic_batching_key=self._dynamic_batching_key)
+
+
+def get_latin_characters(language: str = None):
+    characters = {
+        'de': set((b" -'abcdefghijklmnopqrstuvwxyz\xc3\xb6\xc3\xa4\xc3\xbc\xc3\x9f").decode()),
+        'fr': set((b" -'abcdefghijklmnopqrstuvwxyz\xc3\xa0\xc3\xa2\xc3\xa6\xc3\xa7\xc3\xa9\xc3\xa8\xc3\xaa\xc3\xab\xc3\xae\xc3\xaf\xc3\xb4\xc5\x93\xc3\xb9\xc3\xbb\xc3\xbc\xc3\xbf").decode()),
+        'en': set(" -'abcdefghijklmnopqrstuvwxyz"),
+        'es': set((b" -'abcdefghijklmnopqrstuvwxyz\xc3\xa1\xc3\xa9\xc3\xad\xc3\xb3\xc3\xba\xc3\xb1\xc3\xbc\xc3\xbd").decode()),
+        'pt': set((b" -'abcdefghijklmnopqrstuvwxyz\xc3\xa1\xc3\xa2\xc3\xa3\xc3\xa0\xc3\xa7\xc3\xa9\xc3\xaa\xc3\xad\xc3\xb3\xc3\xb4\xc3\xb5\xc3\xba").decode()),
+    }
+
+    if language:
+        return characters[language]
+
+    # For no language, we just return a union to cover all latin languages.
+    return set().union(*characters.values())
+
+
+def process_latin_sentence(sentence: str,
+                           characters: Set[str],
+                           characters_without_punctuation: Set[str],
+                           disallowed_punctuation: Set[str],
+                           all_characters: Set[str]):
+    # lower
+    sentence = sentence.lower()
+    out = ""
+    disallowed_punctuation_with_dash = disallowed_punctuation | set("-")
+    for index, ch in enumerate(sentence):
+        # remove punctuation except ' and -
+        if ch in disallowed_punctuation:
+            continue
+        elif ch in characters:
+            # keep in vocab
+            out += ch
+        elif len(set(unidecode(ch).lower()) - characters_without_punctuation) == 0:
+            # convert to eng letters and check if it is only them, then add
+            out += unidecode(ch).lower()
+        elif ch == b'\xe2\x80\x99'.decode():
+            if (index > 0 and unidecode(sentence[index - 1]) in disallowed_punctuation_with_dash) or (
+                    index + 1 < len(sentence) and unidecode(sentence[index + 1]) in disallowed_punctuation_with_dash):
+                pass
+            else:
+                out += unidecode(ch).lower()
+        else:
+            # else ignore token
+            continue
+    for k in out:
+        all_characters[k.encode("utf-8")] += 1
+    out = out.replace("- ", " ")
+    out = out.replace(" -", " ")
+    out = re.sub(' +', ' ', out)
+    return out
