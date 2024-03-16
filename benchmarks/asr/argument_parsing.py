@@ -16,7 +16,7 @@ def add_asr_arguments(argument_parser):
                                  help='Optimizer for central updates')
 
     known_args, _ = argument_parser.parse_known_args()
-    if known_args.central_optimizer == 'adam':
+    if known_args.central_optimizer in ['adam', 'lamb']:
         argument_parser.add_argument(
             '--adaptivity_degree',
             type=float,

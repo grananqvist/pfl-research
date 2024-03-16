@@ -98,6 +98,12 @@ def main():
                                              arguments.learning_rate,
                                              eps=arguments.adaptivity_degree,
                                              betas=(0.9, 0.99))
+    elif arguments.central_optimizer == 'lamb':
+        import torch_optimizer
+        central_optimizer = torch_optimizer.Lamb(params,
+                                                 lr=arguments.learning_rate,
+                                                 eps=arguments.adaptivity_degree,
+                                                 betas=(0.9, 0.99))
     else:
         assert arguments.central_optimizer == 'sgd'
         central_optimizer = torch.optim.SGD(params, arguments.learning_rate)
