@@ -104,6 +104,10 @@ def main():
                                                  lr=arguments.learning_rate,
                                                  eps=arguments.adaptivity_degree,
                                                  betas=(0.9, 0.99))
+    elif arguments.central_optimizer == 'lars':
+        from torchlars import LARS
+        base_optimizer = torch.optim.SGD(params, arguments.learning_rate)
+        central_optimizer = LARS(base_optimizer)
     else:
         assert arguments.central_optimizer == 'sgd'
         central_optimizer = torch.optim.SGD(params, arguments.learning_rate)
