@@ -123,5 +123,74 @@ def add_asr_arguments(argument_parser):
         help='Whether to use `torch.compile` on the PyTorch module.')
 
     # TODO: Add LR decay and warmup arguments (sever, optionally local)
+    argument_parser.add_argument(
+        '--central_lr_warmup_iterations',
+        type=int,
+        default=0,
+        help='Number of iterations to warmup central learning rate.')
+    argument_parser.add_argument('--central_lr_schedule',
+                                 choices=['constant', 'step-decay', 'exponential-decay'],
+                                 default='constant',
+                                 help='Central learning rate schedule. Warmup is inserted at the '
+                                      'beginning of the chosen schedule, if warmup is used as '
+                                      'specified by the flag --central_lr_warmup_iterations.')
+
+    known_args, _ = argument_parser.parse_known_args()
+    if known_args.central_lr_schedule == 'step-decay':
+        argument_parser.add_argument('--central_lr_step_decay_iterations',
+                                     type=int,
+                                     default=500,
+                                     help='Number of central iterations for central learning '
+                                          'rate step decay.')
+    if known_args.central_lr_schedule in ['step-decay', 'exponential-decay']:
+        argument_parser.add_argument('--central_lr_decay_gamma',
+                                     type=float,
+                                     default=0.5,
+                                     help='Learning rate decay factor for step or exponential '
+                                          'central learning rate decay.')
 
     return argument_parser
+
+
+def get_central_lr_schedular(arguments, central_optimizer):
+    import torch.optim.lr_scheduler
+    if arguments.central_lr_warmup_iterations > 0:
+        warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+            optimizer=central_optimizer,
+            start_factor=1.0 / (arguments.central_lr_warmup_iterations + 1),
+            end_factor=1.0,
+            total_iters=arguments.central_lr_warmup_iterations,
+        )
+    else:
+        warmup_scheduler = None
+
+    if arguments.central_lr_schedule == 'step-decay':
+        central_lr_scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer=central_optimizer,
+            step_size=arguments.central_lr_step_decay_iterations,
+            gamma=arguments.central_lr_decay_gamma,
+        )
+    elif arguments.central_lr_schedule == 'exponential-decay':
+        central_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+            optimizer=central_optimizer,
+            gamma=arguments.central_lr_decay_gamma,
+        )
+    elif arguments.central_lr_schedule == 'constant':
+        central_lr_scheduler = torch.optim.lr_scheduler.ConstantLR(
+            optimizer=central_optimizer,
+            factor=1.0,
+            total_iters=arguments.central_num_iterations - arguments.central_lr_warmup_iterations,
+        )
+    else:
+        raise ValueError(f'Central learning rate schedule '
+                         f'{arguments.central_lr_schedule} not implemented')
+
+    if warmup_scheduler:
+        central_lr_scheduler_full = torch.optim.lr_scheduler.SequentialLR(
+            central_optimizer,
+            schedulers=[warmup_scheduler, central_lr_scheduler],
+            milestones=[arguments.central_lr_warmup_iterations])
+    else:
+        central_lr_scheduler_full = central_lr_scheduler
+
+    return central_lr_scheduler_full

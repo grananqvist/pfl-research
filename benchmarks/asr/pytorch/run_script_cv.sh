@@ -17,7 +17,7 @@ python -m asr.pytorch.train \
     --val_cohort_size 10 \
     --central_eval_batch_size 384000 \
     --local_learning_rate 0.01 \
-    --central_optimizer adam \
+    --central_optimizer lamb \
     --learning_rate 0.1 \
     --max_sample_audio_length 384000 \
     --num_threads_data_processing 32 \

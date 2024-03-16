@@ -32,7 +32,7 @@ from pfl.metrics import StringMetricName
 from pfl.model.pytorch import PyTorchModel
 from pfl.privacy import CentrallyAppliedPrivacyMechanism
 
-from ..argument_parsing import add_asr_arguments
+from ..argument_parsing import add_asr_arguments, get_central_lr_schedular
 from ..utils import construct_eng_char_trie_for_ctc
 
 
@@ -112,9 +112,12 @@ def main():
         assert arguments.central_optimizer == 'sgd'
         central_optimizer = torch.optim.SGD(params, arguments.learning_rate)
 
+    central_lr_schedular = get_central_lr_schedular(arguments, central_optimizer)
+
     model = PyTorchModel(model=pytorch_model,
                          local_optimizer_create=torch.optim.SGD,
-                         central_optimizer=central_optimizer)
+                         central_optimizer=central_optimizer,
+                         central_learning_rate_scheduler=central_lr_schedular)
 
     postprocessors = [
         local_privacy,
@@ -154,7 +157,7 @@ def main():
         # TrackBestOverallMetrics(
         #     lower_is_better_metric_names=['Central val | perplexity']),
     ]
-    # TODO: Deal with LR decay/warmup.
+
     # if arguments.central_lr_num_warmup_iterations > 0:
     #     central_lr_warmup_cb = CentralLRDecay(
     #         arguments.learning_rate,

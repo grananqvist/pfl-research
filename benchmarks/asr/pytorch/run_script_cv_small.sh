@@ -14,13 +14,16 @@ python -m asr.pytorch.train \
     --training_split en-dev \
     --validation_split en-test \
     --evaluation_splits en-dev en-test \
-    --val_cohort_size 10 \
-    --central_eval_batch_size 384000 \
+    --val_cohort_size 0 \
+    --central_eval_batch_size 768000 \
     --local_learning_rate 0.01 \
-    --central_optimizer adam \
+    --central_optimizer lamb \
     --learning_rate 0.1 \
     --max_sample_audio_length 384000 \
     --num_threads_data_processing 24 \
     --central_num_iterations 5 \
     --local_num_epochs 10 \
-    --dummy_model_size 100
+    --dummy_model_size 100 \
+    --central_lr_warmup_iterations 3 \
+    --central_lr_schedule exponential-decay \
+    --central_lr_decay_gamma 0.9
