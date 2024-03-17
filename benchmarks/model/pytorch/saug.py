@@ -6,7 +6,8 @@ from einops import rearrange, repeat, reduce
 
 
 # offset and width should be num_masks x batch_size
-def _band_mask(size, offset, width):
+def _band_mask(size: int, offset: int, width: int) -> torch.Tensor:
+    """Compute mask for the audio bands"""
     num_masks = offset.shape[0]
     batch_size = offset.shape[1]
     offset = rearrange(offset, "n b -> n b 1")
@@ -20,13 +21,17 @@ def _band_mask(size, offset, width):
     return mask
 
 
-def length_to_mask(lengths, max_length):
+def length_to_mask(lengths: torch.Tensor, max_length: int) -> torch.Tensor:
+    """Convert length vector to the masked vector (ignore padded tokens out of the length)"""
     indices = rearrange(torch.arange(max_length), "t -> 1 t").to(lengths.device)
     return indices < rearrange(lengths, "b -> b 1")  # (batch_size, max_length)
 
 
 # x: NxWxC length: N
-def masked_mean2d(x, x_length, return_mask=False):
+def masked_mean2d(
+    x: torch.Tensor, x_length: torch.Tensor, return_mask: bool = False
+) -> torch.Tensor:
+    """average tensor and return its mean excluding the padded tokens"""
     x_mask = rearrange(length_to_mask(x_length, x.shape[1]), "b t -> b t 1")
     C = x.shape[2]
     scale = 1 / (C * torch.maximum(torch.tensor(1), x_length.clone().detach()))
@@ -39,14 +44,16 @@ def masked_mean2d(x, x_length, return_mask=False):
 
 
 class SpecAugment(nn.Module):
+    """SpecAugment implementation, see https://arxiv.org/abs/1904.08779, w/o time warping"""
+
     def __init__(
         self,
-        num_freq_masks,
-        freq_mask_max_width,
-        num_time_masks,
-        time_mask_max_width,
-        time_mask_width_ratio,
-        avg_mask_strategy,
+        num_freq_masks: int,
+        freq_mask_max_width: int,
+        num_time_masks: int,
+        time_mask_max_width: int,
+        time_mask_width_ratio: float,
+        avg_mask_strategy: bool = False,
     ) -> None:
         super().__init__()
         self.num_freq_masks = num_freq_masks
@@ -56,7 +63,7 @@ class SpecAugment(nn.Module):
         self.time_mask_width_ratio = time_mask_width_ratio
         self.avg_mask_strategy = avg_mask_strategy
 
-    def forward(self, input, input_length):
+    def forward(self, input: torch.Tensor, input_length: torch.Tensor) -> torch.Tensor:
         batch_size = input.shape[0]
         input_max_length = input.shape[1]
         num_channels = input.shape[2]
