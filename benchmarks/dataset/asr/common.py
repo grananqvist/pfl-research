@@ -10,6 +10,7 @@ import pandas as pd
 from pfl.data.dataset import Dataset
 from pfl.internal.ops.selector import get_framework_module as get_ops
 from pfl.model.pytorch import PyTorchModel  # pylint: disable=unused-import
+from mlx.data.features import mfsc
 
 from unidecode import unidecode
 import re
@@ -93,6 +94,8 @@ class ASRDataset:
             self.dataset = self.dataset.prefetch(n_threads, n_threads)  # TODO: check where to prefetch
             self.dataset = self.dataset.read_from_tar(name, "audio_file", "audio", prefix=prefix)
             self.dataset = self.dataset.load_audio("audio", from_memory=True, output_key="input")
+            self.dataset = self.dataset.squeeze("input", -1)  # %1s, one channel
+            self.dataset = self.dataset.key_transform("input", mfsc(80, 16000))
 
             # TODO: Remove, debug only
             # self.dataset = self.dataset.to_buffer()
@@ -103,7 +106,6 @@ class ASRDataset:
             self.dataset = self.dataset.filter_key("audio_file", remove=True)
             self.dataset = self.dataset.tokenize("transcript", trie, ignore_unk=True, output_key="target")
             self.dataset = self.dataset.shape("input", "input_length", 0)
-            self.dataset = self.dataset.squeeze("input", -1)  # %1s, one channel
 
             # self.dataset = (
             #     dx.files_from_tar(name).to_stream().sample_transform(
