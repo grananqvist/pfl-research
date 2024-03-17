@@ -84,12 +84,8 @@ class SpecAugment(nn.Module):
         f_widths = torch.randint(
             0, self.freq_mask_max_width, (self.num_freq_masks, batch_size)
         )
-        ### better implementation??
         f_offsets_max = num_channels - f_widths
-        f_offsets = torch.zeros(self.num_freq_masks, batch_size)
-        for i in range(self.num_freq_masks):
-            for j in range(batch_size):
-                f_offsets[i][j] = torch.randint(0, f_offsets_max[i][j], (1,))[0]
+        f_offsets = (torch.rand(f_offsets_max.shape) * f_offsets_max).int()
         mask = _band_mask(num_channels, f_offsets, f_widths)
         mask = rearrange(mask, "b l -> b 1 l")
         res = torch.where(mask.to(input.device), fill_value, res)
@@ -103,13 +99,9 @@ class SpecAugment(nn.Module):
         for i in range(self.num_time_masks):
             for j in range(batch_size):
                 t_widths[i][j] = torch.randint(0, time_mask_width[j], (1,))[0]
+
         t_offsets_max = input_length - t_widths.to(input.device)
-        t_offsets = torch.zeros(self.num_time_masks, batch_size)
-        for i in range(self.num_time_masks):
-            for j in range(batch_size):
-                t_offsets[i][j] = torch.randint(
-                    0, int(t_offsets_max[i][j].item()), (1,)
-                )[0]
+        t_offsets = (torch.rand(t_offsets_max.shape) * t_offsets_max.int()).int()
 
         mask = _band_mask(input_max_length, t_offsets, t_widths)
         mask = rearrange(mask, "b l -> b l 1")
