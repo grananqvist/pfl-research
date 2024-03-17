@@ -49,7 +49,7 @@ arguments:
   - max_sample_audio_length: 384000
   - local_num_epochs: 10
   - local_learning_rate: 0.3
-  - max_grad_norm: 1.0
+  - local_max_grad_norm: 1.0
 
   #  - weighting: user
   # TODO: rdar://109165296 Implement LocalLRDecay as an adaptive hyperparameter

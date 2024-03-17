@@ -1,3 +1,5 @@
+# TODO: Update this once we're done with example for both cv and ls
+
 data_path: ~/.cache/mlx.data/librispeech
 # Which dataset to train on, currently only supports librispeech for ASR.
 dataset: librispeech

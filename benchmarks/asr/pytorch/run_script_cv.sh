@@ -27,5 +27,5 @@ python -m asr.pytorch.train \
     --central_lr_warmup_iterations 3 \
     --central_lr_schedule exponential-decay \
     --central_lr_decay_gamma 0.9 \
-    --max_grad_norm 1.0
+    --local_max_grad_norm 1.0
 
