@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, List, Optional
 from pfl.data.federated_dataset import FederatedDataset
 from pfl.data.sampling import MinimizeReuseUserSampler
 
-from .common import ASRDataset
+from .common import ASRDataset, get_latin_characters, construct_char_trie_for_ctc
 
 logger = logging.getLogger(name=__name__)
 
@@ -14,7 +14,6 @@ def make_cv_datasets(data_path: str,
                      training_split: str,
                      validation_split: str,
                      evaluation_splits: List[str],
-                     trie: Any,
                      dynamic_batching: bool,
                      stored_datasets: Optional[Dict],
                      target_pad: bool = False,
@@ -23,6 +22,8 @@ def make_cv_datasets(data_path: str,
     logger.info(
         f'Going to preprocess split {training_split} of common-voice dataset (dynamic batching: {dynamic_batching})'
     )
+    characters = get_latin_characters(lang)
+    trie = construct_char_trie_for_ctc(characters)
     dataset = ASRDataset(dataset=f'cv-{lang}-v13',
                          data_path=data_path,
                          split=training_split,
@@ -58,7 +59,7 @@ def make_cv_datasets(data_path: str,
     val_dataset = FederatedDataset(make_dataset_fn=make_val_dataset_fn,
                                    user_sampler=val_user_sampler)
 
-    central_data = []
+    central_data = {}
     for split in evaluation_splits:
         logger.info(
             f'Going to preprocess split {split} of common-voice dataset (dynamic batching: {dynamic_batching})'
@@ -72,10 +73,11 @@ def make_cv_datasets(data_path: str,
                              stored_datasets=stored_datasets,
                              dynamic_batching=dynamic_batching,
                              max_sample_audio_length=max_sample_audio_length)
-        central_data.append(dataset.full_dataset())
+        central_data[split] = dataset.full_dataset()
 
     metadata = {
-        'evaluation_splits': evaluation_splits,
+        'characters': characters,
+        'trie': trie,
     }
 
     return training_dataset, val_dataset, central_data, metadata

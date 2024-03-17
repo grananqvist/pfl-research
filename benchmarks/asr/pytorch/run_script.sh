@@ -23,4 +23,6 @@ python -m asr.pytorch.train \
     --num_threads_data_processing 24 \
     --central_num_iterations 10 \
     --local_num_epochs 10 \
-    --dummy_model_size 255
+    --dummy_model_size 255 \
+    --max_grad_norm 1.0
+

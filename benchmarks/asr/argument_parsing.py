@@ -22,6 +22,11 @@ def add_asr_arguments(argument_parser):
             type=float,
             default=0.01,
             help='Degree of adaptivity (eps) in adaptive server optimizer.')
+    argument_parser.add_argument(
+        '--local_max_grad_norm',
+        type=float,
+        default=None,
+        help='Gradient clipping bound in local SGD training.')
 
     # Dataset arguments
     argument_parser.add_argument(

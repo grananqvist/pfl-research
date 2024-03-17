@@ -4,6 +4,7 @@ import time
 from typing import Any, Dict, Optional, Tuple, Set
 
 import mlx.data as dx
+from mlx.data.core import CharTrie
 import numpy as np
 import pandas as pd
 
@@ -654,3 +655,11 @@ def process_latin_sentence(sentence: str,
     out = out.replace(" -", " ")
     out = re.sub(' +', ' ', out)
     return out
+
+
+def construct_char_trie_for_ctc(characters: Set[str]):
+    trie = CharTrie()
+    trie.insert("@")  # blank TODO: Do we need this?
+    for c in characters:
+        trie.insert(c)
+    return trie

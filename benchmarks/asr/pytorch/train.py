@@ -33,7 +33,6 @@ from pfl.model.pytorch import PyTorchModel
 from pfl.privacy import CentrallyAppliedPrivacyMechanism
 
 from ..argument_parsing import add_asr_arguments, get_central_lr_schedular
-from ..utils import construct_eng_char_trie_for_ctc
 
 
 def main():
@@ -78,17 +77,15 @@ def main():
         population=arguments.population,
         min_separation=arguments.min_separation)
 
-    # Create the trie to tokenize the transcripts.
-    logger.info('Constructing the trie')
-    trie = construct_eng_char_trie_for_ctc(arguments.additional_chars)
-
     # Create federated training and a central val dataset. Validation federated
     # dataset is not currently used.
     logger.info('Preparing the datasets')
     training_federated_dataset, val_federated_dataset, central_data, metadata = get_datasets(
-        arguments, trie=trie, stored_datasets=None)
+        arguments, stored_datasets=None)
 
-    # TODO: Add the real model, otherwise this crashes right now
+    # Trie depends on the dataset so we create it in get_datasets and pass in metadata
+    trie = metadata['trie']
+
     pytorch_model = get_model_pytorch(arguments)
 
     params = [p for p in pytorch_model.parameters() if p.requires_grad]
@@ -134,15 +131,14 @@ def main():
     model_train_params = NNTrainHyperParams(
         local_learning_rate=arguments.local_learning_rate,
         local_num_epochs=arguments.local_num_epochs,
-        local_batch_size=arguments.local_batch_size)
+        local_batch_size=arguments.local_batch_size,
+        local_max_grad_norm=arguments.local_max_grad_norm)
 
     model_eval_params = NNEvalHyperParams(
         local_batch_size=arguments.central_eval_batch_size)
 
     evaluation_callbacks = []
-    for index, central_data_dataset in enumerate(central_data):
-        split = metadata['evaluation_splits'][index]
-        # logger.info(f'EVALUATION SPLIT: {split}')
+    for split, central_data_dataset in central_data.items():
         evaluation_callbacks.append(
             CentralEvaluationCallback(central_data_dataset,
                                       model_eval_params=model_eval_params,
@@ -153,7 +149,7 @@ def main():
     callbacks = [
         StopwatchCallback(), *evaluation_callbacks,
         AggregateMetricsToDisk('./metrics.csv')
-        # TODO: Add WER and TER here when ready.
+        # TODO: Add WER and TER here to track when ready.
         # TrackBestOverallMetrics(
         #     lower_is_better_metric_names=['Central val | perplexity']),
     ]

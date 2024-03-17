@@ -26,4 +26,6 @@ python -m asr.pytorch.train \
     --dummy_model_size 100 \
     --central_lr_warmup_iterations 3 \
     --central_lr_schedule exponential-decay \
-    --central_lr_decay_gamma 0.9
+    --central_lr_decay_gamma 0.9 \
+    --max_grad_norm 1.0
+

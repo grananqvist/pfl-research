@@ -327,13 +327,12 @@ def get_datasets(
                                        parse_pytorch_dataloader_kwargs(args))
     elif args.dataset == 'librispeech':
         from .asr.librispeech import make_librispeech_datasets
-        assert 'trie' in kwargs
+        assert 'stored_datasets' in kwargs
         datasets = make_librispeech_datasets(
             data_path=args.data_path,
             training_split=args.training_split,
             validation_split=args.validation_split,
             evaluation_splits=args.evaluation_splits,
-            trie=kwargs['trie'],
             stored_datasets=kwargs['stored_datasets'],
             dynamic_batching=args.batch_strategy == 'dynamic',
             max_sample_audio_length=args.max_sample_audio_length,
@@ -341,14 +340,13 @@ def get_datasets(
         )
     elif args.dataset == 'common-voice-en-v13':
         from .asr.common_voice import make_cv_datasets
-        assert 'trie' in kwargs
+        assert 'stored_datasets' in kwargs
         datasets = make_cv_datasets(
             data_path=args.data_path,
             lang='en',
             training_split=args.training_split,
             validation_split=args.validation_split,
             evaluation_splits=args.evaluation_splits,
-            trie=kwargs['trie'],
             stored_datasets=kwargs['stored_datasets'],
             dynamic_batching=args.batch_strategy == 'dynamic',
             max_sample_audio_length=args.max_sample_audio_length,
