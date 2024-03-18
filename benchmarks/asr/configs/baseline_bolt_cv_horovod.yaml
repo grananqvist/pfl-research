@@ -1,10 +1,10 @@
 # bolt task submit --config pfl-research/benchmarks/asr/configs/baseline_bolt.yaml --tar pfl-research
 
-name: "ASR lamb dummy 255M, CV en-train, cohort 128, 20 iterations"
+name: "ASR horo lamb dummy 255M, CV en-train, cohort 128, 20 iterations"
 setup_command: "bash benchmarks/asr/pytorch/setup_bolt_cv.sh"
 #command: "source $(dirname $(poetry run which python3.10))/activate && cd benchmarks && python -m asr.pytorch.train"
 #command: "poetry env use $(which python3.10) && poetry shell && cd benchmarks && python -m asr.pytorch.train"
-command: "bash benchmarks/asr/pytorch/run_training.sh"
+command: "bash benchmarks/asr/pytorch/run_training_horovod.sh"
 tags: ["pfl", "ASR", "debug"]
 
 permissions:
@@ -101,10 +101,10 @@ resources:
 #  cluster: aws_2
   disk_gb: 1024.0
   docker_image: docker.apple.com/iris/iris:latest
-  memory_gb: 600.0
+  memory_gb: 1100.0
   num_cpus: 96
 #  num_gpus: 4
-  task_type: 1gpu
+  task_type: 4gpu
   timeout: 14d
 scheduling_options:
   preemptible: false

@@ -427,7 +427,6 @@ def create_asr_ctc_model(nlabel):
     encoder = AsrEncoder(pos_embedding_layer=pos_embedding_layer, nlabel=nlabel)
     loss_func = nn.CTCLoss(reduction="none", zero_infinity=True)
     model = ASRModel(
-        nlabel=nlabel,
         encoder=encoder,
         saug_func=saug_func,
         loss_func=loss_func,

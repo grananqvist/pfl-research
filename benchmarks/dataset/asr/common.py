@@ -248,6 +248,8 @@ class ASRDataset:
                                     "audio",
                                     from_memory=True,
                                     output_key="input")
+            self.dataset = self.dataset.squeeze("input", -1)  # %1s, one channel
+            self.dataset = self.dataset.key_transform("input", mfsc(80, 16000))
 
             # TODO: Remove, debug only
             # self.dataset = self.dataset.to_buffer()
@@ -262,7 +264,6 @@ class ASRDataset:
                                         ignore_unk=True,
                                         output_key="target")
             self.dataset = self.dataset.shape("input", "input_length", 0)
-            self.dataset = self.dataset.squeeze("input", -1)
 
             # self.dataset = (dx.buffer_from_vector([{
             #     'file':
