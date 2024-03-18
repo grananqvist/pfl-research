@@ -32,7 +32,8 @@ def make_librispeech_datasets(data_path: str,
                          n_threads=num_threads,
                          stored_datasets=stored_datasets,
                          dynamic_batching=dynamic_batching,
-                         max_sample_audio_length=max_sample_audio_length)
+                         max_sample_audio_length=max_sample_audio_length,
+                         characters=characters)
     user_ids = dataset.get_user_ids()
     print(f'total {len(user_ids)} users')
     make_dataset_fn = dataset.make_dataset_fn
@@ -51,7 +52,8 @@ def make_librispeech_datasets(data_path: str,
                          n_threads=num_threads,
                          stored_datasets=stored_datasets,
                          dynamic_batching=dynamic_batching,
-                         max_sample_audio_length=max_sample_audio_length)
+                         max_sample_audio_length=max_sample_audio_length,
+                         characters=characters)
     val_user_ids = dataset.get_user_ids()
     print(f'total {len(user_ids)} users')
     make_val_dataset_fn = dataset.make_dataset_fn
@@ -71,7 +73,8 @@ def make_librispeech_datasets(data_path: str,
                              n_threads=num_threads,
                              stored_datasets=stored_datasets,
                              dynamic_batching=dynamic_batching,
-                             max_sample_audio_length=max_sample_audio_length)
+                             max_sample_audio_length=max_sample_audio_length,
+                             characters=characters)
         central_data[split] = dataset.full_dataset()
 
     metadata = {

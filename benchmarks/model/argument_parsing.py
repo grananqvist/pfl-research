@@ -215,7 +215,7 @@ def get_model_tf2(args: argparse.Namespace):
     return model
 
 
-def get_model_pytorch(args: argparse.Namespace):
+def get_model_pytorch(args: argparse.Namespace, **kwargs):
     """
     Initialize the PyTorch model specified by ``args.model_name`` with
     other required arguments also available in ``args``.
@@ -266,7 +266,8 @@ def get_model_pytorch(args: argparse.Namespace):
             args.pretrained,
         )
     elif model_name == "asr_ctc_transformer":
-        model = pytorch.create_asr_ctc_model(nlabel=29)
+        assert 'num_trie_labels' in kwargs
+        model = pytorch.create_asr_ctc_model(nlabel=kwargs['num_trie_labels'])
     else:
         raise TypeError(f"Model {model_name} not implemented for PyTorch.")
     return model

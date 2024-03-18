@@ -10,7 +10,7 @@ python -m asr.pytorch.train \
     --model_name asr_ctc_transformer \
     --local_batch_size 384000 \
     --evaluation_frequency 1 \
-    --cohort_size 20 \
+    --cohort_size 128 \
     --training_split en-dev \
     --validation_split en-test \
     --evaluation_splits en-dev en-test \
@@ -18,7 +18,7 @@ python -m asr.pytorch.train \
     --central_eval_batch_size 768000 \
     --local_learning_rate 0.01 \
     --central_optimizer lamb \
-    --learning_rate 0.1 \
+    --learning_rate 0.006 \
     --max_sample_audio_length 384000 \
     --num_threads_data_processing 24 \
     --central_num_iterations 5 \

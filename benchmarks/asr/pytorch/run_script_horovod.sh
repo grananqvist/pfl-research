@@ -11,7 +11,7 @@ python -m asr.pytorch.train \
     --model_name asr_ctc_transformer \
     --local_batch_size 384000 \
     --evaluation_frequency 1 \
-    --cohort_size 20 \
+    --cohort_size 128 \
     --evaluation_splits dev-clean dev-other test-clean test-other \
     --val_cohort_size 10 \
     --central_eval_batch_size 384000 \

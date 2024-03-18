@@ -86,10 +86,10 @@ def main():
     # Trie depends on the dataset so we create it in get_datasets and pass in metadata
     trie = metadata['trie']
 
-    pytorch_model = get_model_pytorch(arguments)
+    pytorch_model = get_model_pytorch(arguments, num_trie_labels=trie.num_keys())
 
     params = [p for p in pytorch_model.parameters() if p.requires_grad]
-    if arguments.central_optimizer == 'adam':  # TODO: Add other optimizers
+    if arguments.central_optimizer == 'adam':
         # Hyperparameters for stability, see S. Reddi et al. 2020 Appendix C.1.
         central_optimizer = torch.optim.Adam(params,
                                              arguments.learning_rate,

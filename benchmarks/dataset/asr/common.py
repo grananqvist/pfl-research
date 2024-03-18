@@ -15,6 +15,7 @@ from mlx.data.features import mfsc
 
 from unidecode import unidecode
 import re
+from collections import defaultdict
 
 logger = logging.getLogger(name=__name__)
 
@@ -34,6 +35,7 @@ class ASRDataset:
         dynamic_batching: bool = True,
         stored_datasets: Optional[Dict] = None,
         max_sample_audio_length: Optional[int] = None,
+        characters: Set[str] = None,
     ):
         self.trie = trie
         if dataset == 'librispeech':
@@ -46,6 +48,7 @@ class ASRDataset:
                 target_pad=target_pad,
                 dynamic_batching_key=('input' if dynamic_batching else None),
                 max_sample_audio_length=max_sample_audio_length,
+                characters=characters,
             )
         elif dataset == 'cv-en-v13':
             self.initialize_common_voice(
@@ -76,8 +79,13 @@ class ASRDataset:
         target_pad=False,
         dynamic_batching_key=None,
         max_sample_audio_length: Optional[int] = None, # TODO: Make this work.
+        characters: Set[str] = None,
     ):
         assert trie is not None
+
+        characters_without_punctuation = characters - set("-'")
+        disallowed_punctuation = set("!\"#$%&\()*+,./:;<=>?@[\\]^_`{|}~")
+        all_characters = defaultdict(int)
 
         self._dynamic_batching_key = dynamic_batching_key
 
@@ -98,13 +106,18 @@ class ASRDataset:
             self.dataset = self.dataset.squeeze("input", -1)  # %1s, one channel
             self.dataset = self.dataset.key_transform("input", mfsc(80, 16000))
 
-            # TODO: Remove, debug only
-            # self.dataset = self.dataset.to_buffer()
-            # print(f'Time after decompressing audio files: {time.time() - start}')
-            # exit(42)
-
             self.dataset = self.dataset.filter_key("audio", remove=True)
             self.dataset = self.dataset.filter_key("audio_file", remove=True)
+            # Preprocess the transcript here because librispeech is processed as is.
+            self.dataset = self.dataset.key_transform(
+                "transcript",
+                lambda sentence: bytes(process_latin_sentence(
+                    ''.join([chr(c) for c in sentence]),
+                    characters,
+                    characters_without_punctuation,
+                    disallowed_punctuation,
+                    all_characters), 'utf-8'))
+
             self.dataset = self.dataset.tokenize("transcript", trie, ignore_unk=True, output_key="target")
             self.dataset = self.dataset.shape("input", "input_length", 0)
 
@@ -626,6 +639,8 @@ def process_latin_sentence(sentence: str,
                            characters_without_punctuation: Set[str],
                            disallowed_punctuation: Set[str],
                            all_characters: Set[str]):
+#    print('sentence:', sentence)
+#    print('type(sentence):', type(sentence))
     # lower
     sentence = sentence.lower()
     out = ""
