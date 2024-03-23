@@ -71,6 +71,7 @@ def add_dataset_arguments(
                             'oasst',
                             'librispeech',
                             'common-voice-en-v13',
+                            'asr-hdf5',
                         ],
                         default='cifar10',
                         help='Which dataset to train on')
@@ -337,6 +338,7 @@ def get_datasets(
             dynamic_batching=args.batch_strategy == 'dynamic',
             max_sample_audio_length=args.max_sample_audio_length,
             num_threads=args.num_threads_data_processing,
+            lazy_load_audio=args.lazy_load_audio,
         )
     elif args.dataset == 'common-voice-en-v13':
         from .asr.common_voice import make_cv_datasets
@@ -351,6 +353,16 @@ def get_datasets(
             dynamic_batching=args.batch_strategy == 'dynamic',
             max_sample_audio_length=args.max_sample_audio_length,
             num_threads=args.num_threads_data_processing,
+            lazy_load_audio=args.lazy_load_audio,
+        )
+    elif args.dataset == 'asr-hdf5':
+        from .asr.hdf5_dataset import make_datasets
+        datasets = make_datasets(
+            data_path=args.data_path,
+            training_split=args.training_split,
+            validation_split=args.validation_split,
+            evaluation_splits=args.evaluation_splits,
+            dynamic_batching=args.batch_strategy == 'dynamic',
         )
     else:
         raise ValueError(f'{args.dataset} is not supported')

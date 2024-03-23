@@ -36,8 +36,11 @@ class ASRDataset:
         stored_datasets: Optional[Dict] = None,
         max_sample_audio_length: Optional[int] = None,
         characters: Set[str] = None,
+        lazy_load_audio: bool = False,
     ):
         self.trie = trie
+        self.lazy_load_audio = lazy_load_audio
+        self.max_sample_audio_length = max_sample_audio_length
         if dataset == 'librispeech':
             self.initialize_librispeech(
                 name=os.path.join(data_path, f'{split}.tar'),
@@ -47,7 +50,6 @@ class ASRDataset:
                 n_threads=n_threads,
                 target_pad=target_pad,
                 dynamic_batching_key=('input' if dynamic_batching else None),
-                max_sample_audio_length=max_sample_audio_length,
                 characters=characters,
             )
         elif dataset == 'cv-en-v13':
@@ -61,7 +63,6 @@ class ASRDataset:
                 n_threads=n_threads,
                 target_pad=target_pad,
                 dynamic_batching_key=('input' if dynamic_batching else None),
-                max_sample_audio_length=max_sample_audio_length,
             )
         else:
             raise ValueError(f'Unknown dataset {dataset}')
@@ -78,10 +79,12 @@ class ASRDataset:
         n_threads=-1,
         target_pad=False,
         dynamic_batching_key=None,
-        max_sample_audio_length: Optional[int] = None, # TODO: Make this work.
         characters: Set[str] = None,
     ):
         assert trie is not None
+
+        self.tar_name = name
+        self.prefix = prefix
 
         characters_without_punctuation = characters - set("-'")
         disallowed_punctuation = set("!\"#$%&\()*+,./:;<=>?@[\\]^_`{|}~")
@@ -101,13 +104,12 @@ class ASRDataset:
             self.dataset = self.dataset.line_reader_from_key("samples", "sample", from_memory=True)
             self.dataset = self.dataset.sample_transform(self.librispeech_process_csv_row)
             self.dataset = self.dataset.prefetch(n_threads, n_threads)  # TODO: check where to prefetch
-            self.dataset = self.dataset.read_from_tar(name, "audio_file", "audio", prefix=prefix)
-            self.dataset = self.dataset.load_audio("audio", from_memory=True, output_key="input")
-            self.dataset = self.dataset.squeeze("input", -1)  # %1s, one channel
-            self.dataset = self.dataset.key_transform("input", mfsc(80, 16000))
 
-            self.dataset = self.dataset.filter_key("audio", remove=True)
-            self.dataset = self.dataset.filter_key("audio_file", remove=True)
+            print(f'self.lazy_load_audio: {self.lazy_load_audio}')
+            if not self.lazy_load_audio:
+                # we load audio when the user dataset is requested to save memory
+                self.dataset = self.load_audio(self.dataset)
+
             # Preprocess the transcript here because librispeech is processed as is.
             self.dataset = self.dataset.key_transform(
                 "transcript",
@@ -119,7 +121,6 @@ class ASRDataset:
                     all_characters), 'utf-8'))
 
             self.dataset = self.dataset.tokenize("transcript", trie, ignore_unk=True, output_key="target")
-            self.dataset = self.dataset.shape("input", "input_length", 0)
 
             # self.dataset = (
             #     dx.files_from_tar(name).to_stream().sample_transform(
@@ -149,10 +150,6 @@ class ASRDataset:
             #                                0).squeeze("input",
             #                                           -1)  # %1s, one channel
             # )
-            if max_sample_audio_length is not None:
-                self.dataset = self.dataset.sample_transform(
-                    lambda sample: sample if sample['input_length'].item(
-                    ) <= max_sample_audio_length else {})
             if target_pad:
                 self.dataset = self.dataset.pad('target', 0, 1, 1,
                                                 1)  # pad target with silence
@@ -172,24 +169,26 @@ class ASRDataset:
 
         start = time.time()
 
-        self.durations, self.client_ids = zip(
-            *([item['input_length'].item(),
-               bytes(item['user_id'])] for item in self.dataset
-              if 'user_id' in item))
-
-        print('max audio length:', np.max(self.durations))
+        self.client_ids = [bytes(item['user_id']) for item in self.dataset]
+        # self.durations, self.client_ids = zip(
+        #     *([item['input_length'].item(),
+        #        bytes(item['user_id'])] for item in self.dataset
+        #       if 'user_id' in item))
+        #
+        # print('max audio length:', np.max(self.durations))
 
         end = time.time()
         logger.info(
             f'Time for extracting durations and client ids: {end - start}')
 
-        self.durations = np.array(self.durations)
+        # self.durations = np.array(self.durations)
         self.client_ids = np.array(self.client_ids)
 
         # TODO: Check why not exact match for total duration e.g. for train-clean-100
-        logger.info(
-            f'Dataset total (h) duration {np.sum(self.durations) / 16000 / 60 / 60}'
-        )
+        if not self.lazy_load_audio:
+            logger.info(
+                f'Dataset total (h) duration {np.sum([item["input_length"].item() for item in self.dataset]) / 16000 / 60 / 60}'
+            )
 
         start = time.time()
 
@@ -197,7 +196,7 @@ class ASRDataset:
         logger.info(f'Total {len(self.clients_unique)} clients')
 
         self.df = pd.DataFrame({
-            "duration": self.durations,
+            # "duration": self.durations,
             "client": self.client_ids
         })
         self.df_group = self.df.groupby("client", sort=False).groups
@@ -205,6 +204,25 @@ class ASRDataset:
         end = time.time()
         logger.info(
             f'Time for grouping and other postprocessing: {end - start}')
+
+
+    def load_audio(self, dataset):
+        assert self.tar_name
+        dataset = dataset.read_from_tar(self.tar_name, "audio_file", "audio", prefix=self.prefix)
+        dataset = dataset.load_audio("audio", from_memory=True, output_key="input")
+        dataset = dataset.squeeze("input", -1)  # %1s, one channel
+        dataset = dataset.key_transform("input", mfsc(80, 16000))
+
+        dataset = dataset.filter_key("audio", remove=True)
+        dataset = dataset.filter_key("audio_file", remove=True)
+        dataset = dataset.shape("input", "input_length", 0)
+
+        if self.max_sample_audio_length is not None:
+            dataset = dataset.sample_transform(
+                lambda sample: sample if sample['input_length'].item(
+                ) <= self.max_sample_audio_length else {})
+
+        return dataset
 
 
     def initialize_common_voice(  # TODO: Remove defaults
@@ -216,9 +234,11 @@ class ASRDataset:
             stored_datasets,  # TODO: Do we only need this for the central dataset?
             n_threads: int = -1,
             target_pad: bool = False,
-            dynamic_batching_key: Optional[str] = None,
-            max_sample_audio_length: Optional[int] = None):
+            dynamic_batching_key: Optional[str] = None):
         assert trie is not None
+
+        self.tar_name = name
+        self.prefix = f'{prefix}/flac-16kHz'
 
         self._dynamic_batching_key = dynamic_batching_key
 
@@ -233,37 +253,46 @@ class ASRDataset:
             self.dataset = self.dataset.line_reader_from_key('samples', 'sample', from_memory=True)
             self.dataset = self.dataset.prefetch(n_threads, n_threads)
             self.dataset = self.dataset.sample_transform(self.common_voice_process_csv_row)
-            self.dataset = self.dataset.prefetch(n_threads, n_threads).read_from_tar(
-                                name,
-                                "audio_file",
-                                "audio",
-                                prefix=f'{prefix}/flac-16kHz')
+            self.dataset = self.dataset.prefetch(n_threads, n_threads)
 
             # TODO: Remove, debug only
             # self.dataset = self.dataset.to_buffer()
             # print(f'Time after loading audio files: {time.time() - start}')
             # exit(42)
 
-            self.dataset = self.dataset.load_audio(
-                                    "audio",
-                                    from_memory=True,
-                                    output_key="input")
-            self.dataset = self.dataset.squeeze("input", -1)  # %1s, one channel
-            self.dataset = self.dataset.key_transform("input", mfsc(80, 16000))
+            print(f'self.lazy_load_audio: {self.lazy_load_audio}')
+            if not self.lazy_load_audio:
+                self.dataset = self.load_audio(self.dataset)
+
+            # self.dataset = self.dataset.read_from_tar(
+            #                     name,
+            #                     "audio_file",
+            #                     "audio",
+            #                     prefix=f'{prefix}/flac-16kHz')
+            # self.dataset = self.dataset.load_audio(
+            #                         "audio",
+            #                         from_memory=True,
+            #                         output_key="input")
+            # self.dataset = self.dataset.squeeze("input", -1)  # %1s, one channel
+            # self.dataset = self.dataset.key_transform("input", mfsc(80, 16000))
+            # self.dataset = self.dataset.filter_key("audio", remove=True)
+            # self.dataset = self.dataset.filter_key("audio_file", remove=True)
+            # self.dataset = self.dataset.shape("input", "input_length", 0)
+            # if max_sample_audio_length is not None:
+            #     self.dataset = self.dataset.sample_transform(
+            #         lambda sample: sample if sample['input_length'].item(
+            #         ) <= max_sample_audio_length else {})
 
             # TODO: Remove, debug only
             # self.dataset = self.dataset.to_buffer()
             # print(f'Time after decompressing audio files: {time.time() - start}')
             # exit(42)
 
-            self.dataset = self.dataset.filter_key("audio", remove=True)
-            self.dataset = self.dataset.filter_key("audio_file", remove=True)
             self.dataset = self.dataset.tokenize(
                                         "transcript",
                                         trie,
                                         ignore_unk=True,
                                         output_key="target")
-            self.dataset = self.dataset.shape("input", "input_length", 0)
 
             # self.dataset = (dx.buffer_from_vector([{
             #     'file':
@@ -290,10 +319,6 @@ class ASRDataset:
             #                             output_key="target").shape(
             #                                 "input", "input_length",
             #                                 0).squeeze("input", -1))
-            if max_sample_audio_length is not None:
-                self.dataset = self.dataset.sample_transform(
-                    lambda sample: sample if sample['input_length'].item(
-                    ) <= max_sample_audio_length else {})
 
             if target_pad:
                 self.dataset = self.dataset.pad('target', 0, 1, 1,
@@ -304,6 +329,25 @@ class ASRDataset:
             # prefetch all data and then bufferize them
             self.dataset = self.dataset.prefetch(n_threads,
                                                  n_threads).to_buffer()
+
+
+            # sizes_of_input = []
+            # for idx in range(200):
+            #     # print(f'DEBUG: self.dataset[{idx}] = {self.dataset[idx]}')
+            #     print(f'\tkey, value shapes: {[(k, v.shape) for k, v in self.dataset[idx].items()] }')
+            #     for k, v in self.dataset[idx].items():
+            #         print(f'\tsize of {k}: {v.size} ({v.size * v.itemsize} bytes)')
+            #         if k == 'input':
+            #             sizes_of_input.append(v.size * v.itemsize)
+            # print(f'Average size of user data in bytes: {np.mean(sizes_of_input)} (std {np.std(sizes_of_input)})')
+            #
+
+            # data_sizes_bytes = [v.size * v.itemsize for x in self.dataset for k,v in x.items()]
+            # input_sizes_bytes = [x['input'].size * x['input'].itemsize for x in self.dataset]
+            # total_input_sizes_G = np.sum(input_sizes_bytes) / (1000 * 1000 * 1000) # in G
+            # total_data_size_G = np.sum(data_sizes_bytes) / (1000 * 1000 * 1000) # in G
+            # print(f'Total input memory footprint in G: {total_input_sizes_G}')
+            # print(f'Total memory footprint in G: {total_data_size_G}')
 
             end = time.time()
             logger.info(
@@ -317,12 +361,11 @@ class ASRDataset:
             #     total_input += item['input'].nbytes / 1024.0
             # print(f'ratio audio/input: {total_audio/total_input} = {total_audio} / {total_input}')
 
-            print(
-                'max audio length:',
-                np.max([
-                    sample['input_length'].item() for sample in self.dataset
-                ]))
-
+            # print(
+            #     'max audio length:',
+            #     np.max([
+            #         sample['input_length'].item() for sample in self.dataset
+            #     ]))
 
             if stored_datasets is not None:
                 stored_datasets[name] = self.dataset
@@ -333,35 +376,37 @@ class ASRDataset:
             print(
                 f"self.dataset[index]['user_id']: {bytes(self.dataset[index]['user_id'])}"
             )
-            print(
-                f"self.dataset[index]['input_length']: {self.dataset[index]['input_length']}   type: {type(self.dataset[index]['input_length'])}"
-            )
+            if 'input_length' in self.dataset[index]:
+                print(
+                    f"self.dataset[index]['input_length']: {self.dataset[index]['input_length']}   type: {type(self.dataset[index]['input_length'])}"
+                )
 
         start = time.time()
 
-        self.durations, self.client_ids = zip(
-            *([item['input_length'].item(),
-               bytes(item['user_id'])] for item in self.dataset))
+        # self.durations, self.client_ids = zip(
+        #     *([item['input_length'].item(),
+        #        bytes(item['user_id'])] for item in self.dataset))
+        self.client_ids = [bytes(item['user_id']) for item in self.dataset]
 
         end = time.time()
         logger.info(
             f'Time for extracting durations and client ids: {end - start}')
 
-        self.durations = np.array(self.durations)
+        # self.durations = np.array(self.durations)
         self.client_ids = np.array(self.client_ids)
 
         # TODO: Check why not exact match for total duration e.g. for train-clean-100
-        logger.info(
-            f'Dataset total (h) duration {np.sum(self.durations) / 16000 / 60 / 60}'
-        )
-
+        if not self.lazy_load_audio:
+            logger.info(
+                f'Dataset total (h) duration {np.sum([item["input_length"].item() for item in self.dataset]) / 16000 / 60 / 60}'
+            )
         start = time.time()
 
         self.clients_unique = np.unique(self.client_ids)
         logger.info(f'Total {len(self.clients_unique)} clients')
 
         self.df = pd.DataFrame({
-            "duration": self.durations,
+            # "duration": self.durations,
             "client": self.client_ids
         })
         self.df_group = self.df.groupby("client", sort=False).groups
@@ -421,6 +466,11 @@ class ASRDataset:
 
     def make_dataset_fn(self, user_id):
         dataset = self.get_user_dataset(user_id)
+        if self.lazy_load_audio:
+            print('Loading audio')
+            start = time.time()
+            dataset = self.load_audio(dataset)
+            print(f'Loading user audio took {time.time() - start}')
         return MlxDataUserDataset(
             dataset,
             user_id=user_id,
@@ -429,6 +479,10 @@ class ASRDataset:
 
     def full_dataset(self):
         dataset = self.dataset
+        if self.lazy_load_audio:
+            start = time.time()
+            dataset = self.load_audio(dataset)
+            print(f'Loading entire dataset audio took {time.time() - start}')
         return MlxDataUserDataset(
             dataset,
             dynamic_batching_key=self._dynamic_batching_key,
@@ -674,8 +728,9 @@ def process_latin_sentence(sentence: str,
 
 
 def construct_char_trie_for_ctc(characters: Set[str]):
+    characters = ''.join(sorted(characters))
     trie = CharTrie()
-    trie.insert("@")  # blank TODO: Do we need this?
     for c in characters:
         trie.insert(c)
+    trie.insert("@")  # blank TODO: Do we need this?
     return trie

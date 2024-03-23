@@ -1,6 +1,6 @@
 # bolt task submit --config pfl-research/benchmarks/asr/configs/baseline_bolt.yaml --tar pfl-research
 
-name: "ASR lamb dummy 255M, CV en-train, cohort 128, 20 iterations"
+name: "ASR lamb, CV en-train, cohort 128, 30 iterations"
 setup_command: "bash benchmarks/asr/pytorch/setup_bolt_cv.sh"
 #command: "source $(dirname $(poetry run which python3.10))/activate && cd benchmarks && python -m asr.pytorch.train"
 #command: "poetry env use $(which python3.10) && poetry shell && cd benchmarks && python -m asr.pytorch.train"
@@ -45,7 +45,7 @@ arguments:
   - central_num_iterations: 30
   - batch_strategy: dynamic
   - local_batch_size: 384000
-  - central_eval_batch_size: 768000
+  - central_eval_batch_size: 384000
   - max_sample_audio_length: 384000
   - local_num_epochs: 10
   - local_learning_rate: 0.3

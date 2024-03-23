@@ -17,7 +17,8 @@ def make_librispeech_datasets(data_path: str,
                               stored_datasets: Optional[Dict],
                               target_pad: bool = False,
                               max_sample_audio_length: Optional[int] = None,
-                              num_threads: int = 1):
+                              num_threads: int = 1,
+                              lazy_load_audio: bool = False):
     logger.info(
         f'Going to preprocess split {training_split} of librispeech dataset (dynamic batching: {dynamic_batching})'
     )
@@ -33,7 +34,8 @@ def make_librispeech_datasets(data_path: str,
                          stored_datasets=stored_datasets,
                          dynamic_batching=dynamic_batching,
                          max_sample_audio_length=max_sample_audio_length,
-                         characters=characters)
+                         characters=characters,
+                         lazy_load_audio=lazy_load_audio)
     user_ids = dataset.get_user_ids()
     print(f'total {len(user_ids)} users')
     make_dataset_fn = dataset.make_dataset_fn
@@ -53,7 +55,8 @@ def make_librispeech_datasets(data_path: str,
                          stored_datasets=stored_datasets,
                          dynamic_batching=dynamic_batching,
                          max_sample_audio_length=max_sample_audio_length,
-                         characters=characters)
+                         characters=characters,
+                         lazy_load_audio=lazy_load_audio)
     val_user_ids = dataset.get_user_ids()
     print(f'total {len(user_ids)} users')
     make_val_dataset_fn = dataset.make_dataset_fn
@@ -74,7 +77,8 @@ def make_librispeech_datasets(data_path: str,
                              stored_datasets=stored_datasets,
                              dynamic_batching=dynamic_batching,
                              max_sample_audio_length=max_sample_audio_length,
-                             characters=characters)
+                             characters=characters,
+                             lazy_load_audio=lazy_load_audio)
         central_data[split] = dataset.full_dataset()
 
     metadata = {

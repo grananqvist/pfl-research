@@ -6,7 +6,7 @@ export PYTHONPATH="."
 
 python -m asr.pytorch.train \
     --data_path ~/.cache/mlx.data/cv-v13 \
-    --dataset common-voice-en-v13 \
+    --dataset asr-hdf5 \
     --model_name asr_ctc_transformer \
     --local_batch_size 384000 \
     --evaluation_frequency 1 \

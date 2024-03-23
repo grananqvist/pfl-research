@@ -62,6 +62,13 @@ def add_asr_arguments(argument_parser):
                                  type=int,
                                  default=1,
                                  help='Model size in millions (must be >= 1).')
+    argument_parser.add_argument("--lazy_load_audio",
+                                 action=store_bool,
+                                 default=False,
+                                 help='Whether to load audio only once the user dataset or '
+                                      'central dataset is created. This typically saves '
+                                      'memory for large federated datasets but possibly '
+                                      'prolongs the cohort processing.')
 
     # Model arguments
     argument_parser.add_argument('--cape',

@@ -1,10 +1,11 @@
 # bolt task submit --config pfl-research/benchmarks/asr/configs/baseline_bolt.yaml --tar pfl-research
 
-name: "ASR horo lamb, CV en-train, cohort 128, 30 iterations"
+name: "ASR lazy horo2x lamb, CV en-train, cohort 128, 30 iterations"
 setup_command: "bash benchmarks/asr/pytorch/setup_bolt_cv.sh"
 #command: "source $(dirname $(poetry run which python3.10))/activate && cd benchmarks && python -m asr.pytorch.train"
 #command: "poetry env use $(which python3.10) && poetry shell && cd benchmarks && python -m asr.pytorch.train"
-command: "bash benchmarks/asr/pytorch/run_training_horovod.sh"
+#command: "bash benchmarks/asr/pytorch/run_training_horovod.sh"
+command: "bash benchmarks/asr/pytorch/run_training_horovod_2x.sh"
 tags: ["pfl", "ASR", "debug"]
 
 permissions:
@@ -23,6 +24,7 @@ arguments:
   - validation_split: en-test
   - evaluation_splits: en-dev en-test
   - num_threads_data_processing: 32
+  - lazy_load_audio: True
 
   # Which model to train, currently only supports asr_ctc_transformer for ASR.
   - model_name: asr_ctc_transformer

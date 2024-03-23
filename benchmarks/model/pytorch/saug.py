@@ -16,6 +16,10 @@ def _band_mask(size: int, offset: int, width: int) -> torch.Tensor:
     mask = rearrange(torch.arange(size), "s -> 1 1 s")
     mask = repeat(mask, "n b s -> n (repeat b) s", repeat=batch_size)
     mask = repeat(mask, "n b s -> (repeat n) b s", repeat=num_masks)
+    # print('mask.device:', mask.device)
+    # print('offset.device:', offset.device)
+    mask = mask.to(offset.device)
+    width = width.to(offset.device)
     mask = (mask >= offset) & (mask < (offset + width))
     mask = reduce(mask, "n b s -> b s", "max")
     return mask
@@ -101,7 +105,7 @@ class SpecAugment(nn.Module):
                 t_widths[i][j] = torch.randint(0, time_mask_width[j], (1,))[0]
 
         t_offsets_max = input_length - t_widths.to(input.device)
-        t_offsets = (torch.rand(t_offsets_max.shape) * t_offsets_max.int()).int()
+        t_offsets = (torch.rand(t_offsets_max.shape).to(input.device) * t_offsets_max.int()).int()
 
         mask = _band_mask(input_max_length, t_offsets, t_widths)
         mask = rearrange(mask, "b l -> b l 1")
