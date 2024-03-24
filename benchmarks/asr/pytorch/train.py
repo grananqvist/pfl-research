@@ -148,24 +148,11 @@ def main():
 
     callbacks = [
         StopwatchCallback(), *evaluation_callbacks,
-        AggregateMetricsToDisk('./metrics.csv')
+        AggregateMetricsToDisk(arguments.metrics_file_name),
         # TODO: Add WER and TER here to track when ready.
         # TrackBestOverallMetrics(
         #     lower_is_better_metric_names=['Central val | perplexity']),
     ]
-
-    # if arguments.central_lr_num_warmup_iterations > 0:
-    #     central_lr_warmup_cb = CentralLRDecay(
-    #         arguments.learning_rate,
-    #         arguments.learning_rate,
-    #         arguments.central_num_iterations,
-    #         arguments.central_lr_num_warmup_iterations,
-    #         linear_warmup=True)
-    #     callbacks.append(central_lr_warmup_cb)
-    # if arguments.fedsgd_after_amount_trained is not None:
-    #     raise NotImplementedError(
-    #         "TODO: rdar://109165050 Implement DecayToFedSGD "
-    #         "as an adaptive hyperparameter")
 
     if arguments.restore_model_path is not None:
         model.load(arguments.restore_model_path)

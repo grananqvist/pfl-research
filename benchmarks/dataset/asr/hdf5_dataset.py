@@ -119,6 +119,10 @@ def get_federated_dataset(data_path: str, split: str, dynamic_batching: bool):
         split = list(hdf5_file.keys())[0]
         logger.info(f'Loading central dataset from {hdf5_path}, split {split}')
         user_ids = [key for key in hdf5_file[split].keys() if key != 'metadata']
+        user_id_to_weight = {
+            user_id: np.int32(hdf5_file[split][user_id]['sum_input_length']) for user_id in user_ids
+        }
+        # print('user_id_to_weight:', user_id_to_weight)
         characters = hdf5_file[split]['metadata'].attrs['characters']
         print(f'\ttotal {len(user_ids)} users')
         print(f'\tcharacters: "{characters}"')
@@ -129,7 +133,8 @@ def get_federated_dataset(data_path: str, split: str, dynamic_batching: bool):
             make_user_dataset(user_id, hdf5_path, split, dynamic_batching_key, trie))
         user_sampler = MinimizeReuseUserSampler(user_ids)
         dataset = FederatedDataset(make_dataset_fn=make_dataset_fn,
-                                   user_sampler=user_sampler)
+                                   user_sampler=user_sampler,
+                                   user_id_to_weight=user_id_to_weight)
         return dataset, characters, trie
 
     raise Exception(f'Could not proccess the split {split} in {data_path}, i.e. the file {hdf5_path}')

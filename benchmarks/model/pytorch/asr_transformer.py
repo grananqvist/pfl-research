@@ -403,7 +403,7 @@ class ASRModel(torch.nn.Module):
             loss_key: Weighted(loss_value, num_samples),
             "num_samples": Summed(num_samples),
         }
-        print("calculated metrics:", output)
+        # print("calculated metrics:", output)
         return output
 
 

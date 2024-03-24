@@ -91,7 +91,6 @@ def add_asr_arguments(argument_parser):
         'incompatible. E.g. "-ü".')
 
     # Training and evaluation arguments
-
     argument_parser.add_argument(
         "--batch_strategy",
         default='dynamic',
@@ -134,7 +133,13 @@ def add_asr_arguments(argument_parser):
         default=False,
         help='Whether to use `torch.compile` on the PyTorch module.')
 
-    # TODO: Add LR decay and warmup arguments (sever, optionally local)
+    argument_parser.add_argument(
+        '--metrics_file_name',
+        type=str,
+        default='./metrics.csv',
+        help='Filename for saving the metrics as csv file.')
+
+    # TODO: Consider adding more LR decay and warmup schedules (sever, optionally local)
     argument_parser.add_argument(
         '--central_lr_warmup_iterations',
         type=int,

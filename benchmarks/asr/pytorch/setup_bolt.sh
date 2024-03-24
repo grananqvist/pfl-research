@@ -6,11 +6,12 @@ python3.10 -m pip install poetry
 poetry env use $(which python3.10)
 poetry install -E pytorch -E trees
 . $(dirname $(poetry run which python3.10))/activate
-pip install pandas mlx-data horovod unidecode einops
+pip install pandas mlx-data horovod unidecode einops h5py wandb
 # for Lamb
 pip install torch_optimizer
 # for LARS
 pip install torchlars
+pip install -i https://pypi.apple.com/simple/ apple-certifi
 cd benchmarks
 
 python dataset/asr/download_librispeech.py
