@@ -90,8 +90,6 @@ def make_cv_datasets(data_path: str,
     return training_dataset, val_dataset, central_data, metadata
 
 
-class HD5ASRDataset()
-
 def make_cv_datasets2(data_path: str,
                       lang: str,
                       training_split: str,

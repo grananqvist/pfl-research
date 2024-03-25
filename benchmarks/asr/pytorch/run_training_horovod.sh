@@ -1,7 +1,9 @@
 #!/bin/bash
 
-NUM_PROCESSES=4
-NUM_GPUS=4
+NUM_GPUS=$(nvidia-smi --list-gpus | wc -l)
+NUM_PROCESSES=$NUM_GPUS
+
+echo "NUM_GPUS=${NUM_GPUS}"
 
 source $(dirname $(poetry run which python3.10))/activate
 

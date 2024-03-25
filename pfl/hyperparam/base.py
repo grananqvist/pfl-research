@@ -195,7 +195,7 @@ class NNTrainHyperParams(NNEvalHyperParams):
             assert get_param_value(self.local_max_grad_norm) > 0., (
                 "Local max gradient norm for clipping must be positive")
 
-        if not ((self.local_num_steps is None) ^
-                (self.local_num_epochs is None)):
-            raise ValueError("Either local_num_steps or local_num_epochs "
-                             "must be set, but not both")
+        # if not ((self.local_num_steps is None) ^
+        #         (self.local_num_epochs is None)):
+        #     raise ValueError("Either local_num_steps or local_num_epochs "
+        #                      "must be set, but not both")

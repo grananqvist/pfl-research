@@ -910,6 +910,10 @@ class AggregateMetricsToDisk(TrainingProcessCallback):
     def after_central_iteration(
             self, aggregate_metrics: Metrics, model: ModelType, *,
             central_iteration: int) -> Tuple[bool, Metrics]:
+        if get_ops().distributed.local_rank == 0:
+            print('AggregateMetricsToDisk, aggregate_metrics:', aggregate_metrics)
+            print('AggregateMetricsToDisk, self._frequency:', self._frequency)
+            print('AggregateMetricsToDisk, raw_metrics:', aggregate_metrics.to_simple_dict())
         if central_iteration % self._frequency != 0:
             # Don't write to disk this central iteration.
             return False, Metrics()

@@ -99,6 +99,13 @@ def add_asr_arguments(argument_parser):
         help='Batch strategy to use for local training.')
 
     argument_parser.add_argument(
+        "--local_num_steps",
+        default=None,
+        type=int,
+        help='Local number of steps (batches) per client. If this flag is '
+             'specified, --local_num_epochs should not be.')
+
+    argument_parser.add_argument(
         '--amp_dtype',
         type=str,
         default='float32',

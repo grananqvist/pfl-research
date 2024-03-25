@@ -592,6 +592,9 @@ class MlxDataUserDataset(Dataset):
                     num_threads=2,
                 )
             else:
+                if self._shuffle:
+                    dataset = dataset.shuffle()
+
                 dynamic_batching_values = [
                     x[self._dynamic_batching_key].shape[0]
                     for x in self._raw_data

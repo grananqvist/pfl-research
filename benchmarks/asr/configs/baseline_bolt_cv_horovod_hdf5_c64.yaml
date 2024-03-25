@@ -1,7 +1,7 @@
 # bolt task submit --config pfl-research/benchmarks/asr/configs/baseline_bolt.yaml --tar pfl-research
 
-name: "ASR horo lamb, CV en-train, cohort 128, 30 iterations"
-setup_command: "bash benchmarks/asr/pytorch/setup_bolt_cv_old.sh"
+name: "ASR horo lamb, CV-hdf5 en-train, cohort 64, 30 iterations"
+setup_command: "bash benchmarks/asr/pytorch/setup_bolt_cv.sh"
 #command: "source $(dirname $(poetry run which python3.10))/activate && cd benchmarks && python -m asr.pytorch.train"
 #command: "poetry env use $(which python3.10) && poetry shell && cd benchmarks && python -m asr.pytorch.train"
 command: "bash benchmarks/asr/pytorch/run_training_horovod.sh"
@@ -17,7 +17,7 @@ permissions:
 arguments:
   - data_path: ~/.cache/mlx.data/cv-v13
   # Which dataset to train on, currently only supports librispeech for ASR.
-  - dataset: common-voice-en-v13
+  - dataset: asr-hdf5
   # Which data splits to use
   - training_split: en-train
   - validation_split: en-test
@@ -39,8 +39,8 @@ arguments:
   - metrics_file_name: "$BOLT_ARTIFACT_DIR/metrics.csv"
 
   - learning_rate: 0.006
-  - cohort_size: 128
-  - noise_cohort_size: 128
+  - cohort_size: 64
+  - noise_cohort_size: 64
   # Faster simulation. Central val is used.
   - val_cohort_size: 0
   - central_num_iterations: 30
@@ -67,7 +67,7 @@ arguments:
 #  - use_tensorboard: False
   #save_model_path: './checkpoints'
 
-  #wandb_project_id: testing
+#  - wandb_project_id: asr-pfl-debug
   # This result in all algorithm parameters being added, even though
   # you only select 1 algorithm. Useful for reusing the same config
   # for multiple algorithms.
@@ -90,10 +90,8 @@ arguments:
 #  research_program: 13vWAYnXpBIy
 environment_variables:
   PYTHONPATH: "."
-#  TROVE_CACHE_CONFIG: mlx-apps/asr/baseline/trove.yaml
-#  jaxlibprefix: cp38
-#  jaxversion: 0.3.20
-#  flaxversion: 0.6.0
+  WANDB_API_KEY: "local-cb3b7266d097ac218cdcdbff0c8657f0c92dbcff"
+
 priority: 1
 project_id: priml
 #project_id: snr_compute
