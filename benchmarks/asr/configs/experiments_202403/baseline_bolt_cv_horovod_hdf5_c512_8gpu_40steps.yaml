@@ -1,0 +1,118 @@
+# bolt task submit --config pfl-research/benchmarks/asr/configs/baseline_bolt.yaml --tar pfl-research
+
+name: "8G ASR 40 steps, CV-hdf5 en-train, cohort 512, 100 iterations"
+setup_command: "bash benchmarks/asr/pytorch/setup_bolt_cv.sh"
+#command: "source $(dirname $(poetry run which python3.10))/activate && cd benchmarks && python -m asr.pytorch.train"
+#command: "poetry env use $(which python3.10) && poetry shell && cd benchmarks && python -m asr.pytorch.train"
+command: "bash benchmarks/asr/pytorch/run_training_horovod.sh"
+tags: ["pfl", "ASR", "debug"]
+
+permissions:
+  viewers:
+  - mlr
+  - mpelikan
+  - antares
+  - fgranqvist
+
+arguments:
+  - data_path: ~/.cache/mlx.data/cv-v13
+  # Which dataset to train on, currently only supports librispeech for ASR.
+  - dataset: asr-hdf5
+  # Which data splits to use
+  - training_split: en-train
+  - validation_split: en-test
+  - evaluation_splits: en-dev en-test
+  - num_threads_data_processing: 32
+
+  # Which model to train, currently only supports asr_ctc_transformer for ASR.
+  - model_name: asr_ctc_transformer
+  # Which algorithm to train with: {fedavg, fedprox}.
+  - algorithm_name: fedavg
+  # Model related parameters
+#  - dummy_model_size: 255
+
+  - central_optimizer: lamb
+  - adaptivity_degree: 0.01
+#  - data_fraction: 1.0
+#  - central_data_fraction: 0.01
+  - evaluation_frequency: 10
+  - metrics_file_name: "$BOLT_ARTIFACT_DIR/metrics.csv"
+
+  - learning_rate: 0.006
+  - cohort_size: 512
+  - noise_cohort_size: 512
+  # Faster simulation. Central val is used.
+  - val_cohort_size: 0
+  - central_num_iterations: 100
+  - batch_strategy: dynamic
+  - local_batch_size: 384000
+  - central_eval_batch_size: 384000
+#  - max_sample_audio_length: 24000 #384000
+  - local_num_epochs: 10
+  - local_num_steps: 40
+  - local_learning_rate: 0.3
+  - local_max_grad_norm: 1.0
+
+  #  - weighting: user
+  # TODO: rdar://109165296 Implement LocalLRDecay as an adaptive hyperparameter
+#  - local_lr_decay: False
+  # TODO: rdar://109165050 Implement DecayToFedSGD as an adaptive hyperparameter
+  # - fedsgd_after_amount_trained: 0.75
+
+#  - central_privacy_mechanism: none
+#  - central_epsilon: 2.0
+#  - central_delta: 1e-6
+#  - central_privacy_clipping_bound: 1.0
+#  - central_order: 2
+#  - population: 1e6
+#  - use_tensorboard: False
+  #save_model_path: './checkpoints'
+
+#  - wandb_project_id: asr-pfl-debug
+  # This result in all algorithm parameters being added, even though
+  # you only select 1 algorithm. Useful for reusing the same config
+  # for multiple algorithms.
+  - add_all_arguments: true
+
+  # FedProx params from benchmark-algos/sweep-fedprox
+  - mu: 0.001
+
+  # AdaFedProx override default params
+  - adafedprox_metric_name: "dummy" # TODO: Fix this, "Central val | loss" or something like that
+  - adafedprox_adapt_frequency: 20
+
+  # SCAFFOLD override default params
+  # TODO: Fix
+  - scaffold_population: 342477
+
+#attribution:
+#  phase: dev
+#  project: ASR-PFL
+#  research_program: 13vWAYnXpBIy
+environment_variables:
+  PYTHONPATH: "."
+  WANDB_API_KEY: "local-cb3b7266d097ac218cdcdbff0c8657f0c92dbcff"
+
+priority: 1
+project_id: priml
+#project_id: snr_compute
+resources:
+  cluster: aws_1
+#  cluster: aws_2
+  disk_gb: 1024.0
+  docker_image: docker.apple.com/iris/iris:latest
+#  memory_gb: 1100.0
+#  num_cpus: 96
+#  num_gpus: 4
+  task_type: 8gpu
+  timeout: 14d
+scheduling_options:
+  preemptible: false
+
+cluster_options:
+  aws:
+    instance_type: p4d.24xlarge
+#    instance_type: p4de.24xlarge
+
+
+

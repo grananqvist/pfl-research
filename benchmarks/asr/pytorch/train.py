@@ -130,7 +130,7 @@ def main():
 
     model_train_params = NNTrainHyperParams(
         local_learning_rate=arguments.local_learning_rate,
-        local_num_epochs=arguments.local_num_epochs, # None if arguments.local_num_steps else arguments.local_num_epochs,
+        local_num_epochs=None if arguments.local_num_steps else arguments.local_num_epochs,
         local_num_steps=arguments.local_num_steps,
         local_batch_size=arguments.local_batch_size,
         local_max_grad_norm=arguments.local_max_grad_norm)

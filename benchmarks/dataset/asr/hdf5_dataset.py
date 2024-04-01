@@ -18,19 +18,20 @@ def make_datasets(data_path: str,
                   training_split: str,
                   validation_split: str,
                   evaluation_splits: List[str],
+                  max_sample_audio_length: int,
                   dynamic_batching: bool):
     training_dataset, characters, trie = get_federated_dataset(
-        data_path, training_split, dynamic_batching)
+        data_path, training_split, max_sample_audio_length, dynamic_batching)
     if validation_split:
         val_dataset, new_characters, _ = get_federated_dataset(
-            data_path, validation_split, dynamic_batching)
+            data_path, validation_split, max_sample_audio_length, dynamic_batching)
         assert new_characters == characters
     else:
         val_dataset = None
     central_data = {}
     for evaluation_split in evaluation_splits:
         central_data[evaluation_split], new_characters, _ = get_central_dataset(
-            data_path, evaluation_split, dynamic_batching)
+            data_path, evaluation_split, max_sample_audio_length, dynamic_batching)
         assert new_characters == characters
 
     metadata = {
@@ -76,7 +77,7 @@ def make_user_dataset(user_id, hdf5_path, split, dynamic_batching_key, trie):
             trie=trie)
 
 
-def get_central_dataset(data_path: str, split: str, dynamic_batching: bool):
+def get_central_dataset(data_path: str, split: str, max_sample_audio_length: int, dynamic_batching: bool):
     def process_users(h5file, split, user_ids):
         for user_id in user_ids:
             yield from process_user(h5file, split, user_id)
@@ -93,6 +94,12 @@ def get_central_dataset(data_path: str, split: str, dynamic_batching: bool):
         trie = construct_char_trie_for_ctc(characters)
         all_data = process_users(hdf5_file, split, user_ids)
         dataset = dx.buffer_from_vector(list(all_data))
+        if max_sample_audio_length is not None:
+            print(dataset)
+            print('dataset.size() before deleting long samples:', dataset.size())
+            dataset = dataset.sample_transform(
+                lambda sample: sample if sample['input'].size <= max_sample_audio_length else {})
+            print('dataset.size() after deleting long samples:', dataset.size())
         dynamic_batching_key = 'input' if dynamic_batching else None
         return MlxDataUserDataset(
             dataset,
@@ -102,11 +109,19 @@ def get_central_dataset(data_path: str, split: str, dynamic_batching: bool):
 
 
 
-def get_federated_dataset(data_path: str, split: str, dynamic_batching: bool):
+def get_federated_dataset(data_path: str, split: str, max_sample_audio_length: int, dynamic_batching: bool):
     def make_user_dataset(user_id, hdf5_path, split, dynamic_batching_key, trie):
         with h5py.File(hdf5_path, 'r') as h5file:
             user_data = process_user(h5file, split, user_id)
             dataset = dx.buffer_from_vector(list(user_data))
+            # TODO: Delete too-long audio based on max_sample_audio_length.
+
+            if max_sample_audio_length is not None:
+                print('dataset.size() before deleting long samples:', dataset.size())
+                dataset = dataset.sample_transform(
+                    lambda sample: sample if sample['input'].size <= max_sample_audio_length else {})
+                print('dataset.size() after deleting long samples:', dataset.size())
+
         return MlxDataUserDataset(
             dataset,
             user_id=user_id,

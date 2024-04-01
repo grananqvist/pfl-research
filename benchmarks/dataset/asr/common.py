@@ -41,6 +41,8 @@ class ASRDataset:
         self.trie = trie
         self.lazy_load_audio = lazy_load_audio
         self.max_sample_audio_length = max_sample_audio_length
+        print('data_path:', data_path)
+        print('split:', split)
         if dataset == 'librispeech':
             self.initialize_librispeech(
                 name=os.path.join(data_path, f'{split}.tar'),
@@ -557,6 +559,7 @@ class MlxDataUserDataset(Dataset):
                 #  the batch size, we create a batch with a single member,
                 #  possibly leading to issues.
                 if new_batch * new_max > batch_size and current_batch_size > 0:
+                    # print('new batch audio size:', current_batch_size * current_max_duration)
                     batch_sizes.append(current_batch_size)
                     # print('new batch duration:', current_max_duration * current_batch_size,
                     #       '   batch size:', current_batch_size)
@@ -566,6 +569,7 @@ class MlxDataUserDataset(Dataset):
                 current_max_duration = max(current_max_duration, this_value)
             if current_batch_size > 0:
                 batch_sizes.append(current_batch_size)
+            # logger.info(f'batch_sizes = {batch_sizes}')
 
             return batch_sizes
 
@@ -579,7 +583,7 @@ class MlxDataUserDataset(Dataset):
 
         if self._dynamic_batching_key:
             if USE_MLX_DYNAMIC_BATCHING:
-                # print(f'dynamic_batch uses self._dynamic_batching_key={self._dynamic_batching_key}, batch_size={batch_size}')
+                print(f'dynamic_batch uses self._dynamic_batching_key={self._dynamic_batching_key}, batch_size={batch_size}')
                 dataset = dataset.to_stream().dynamic_batch(
                     buffer_size=8,  # stream buffer_size
                     key=self._dynamic_batching_key,
@@ -596,10 +600,10 @@ class MlxDataUserDataset(Dataset):
                     dataset = dataset.shuffle()
 
                 dynamic_batching_values = [
-                    x[self._dynamic_batching_key].shape[0]
-                    for x in self._raw_data
+                    # np.prod(x[self._dynamic_batching_key].shape) for x in dataset
+                    x[self._dynamic_batching_key].size for x in dataset
                 ]
-                # print('dynamic_batching_values:', dynamic_batching_values)
+                print('dynamic_batching_values[:100]:', dynamic_batching_values[:100])
                 batch_sizes = get_dynamic_batch_sizes(batch_size,
                                                       dynamic_batching_values)
                 dataset = dataset.batch(batch_sizes)
@@ -613,7 +617,7 @@ class MlxDataUserDataset(Dataset):
                                     })
         yield from dataset
 
-    # TODO: Modified but didn't test so far.
+
     def split(
             self,
             fraction: Optional[float] = None,

@@ -12,6 +12,7 @@ pip install torch_optimizer
 # for LARS
 pip install torchlars
 pip install -i https://pypi.apple.com/simple/ apple-certifi
+pip install -i https://pypi.apple.com/simple iris-ml-run turibolt
 
 export NO_PROXY="${NO_PROXY},mlr-wandb.corp.apple.com"
 export no_proxy="${no_proxy},mlr-wandb.corp.apple.com"
@@ -19,7 +20,7 @@ export WANDB_API_KEY="local-cb3b7266d097ac218cdcdbff0c8657f0c92dbcff"
 export WANDB_HOST="https://mlr-wandb.corp.apple.com"
 export WANDB_BASE_URL="https://mlr-wandb.corp.apple.com"
 export WANDB_GROUP=pfl
-wandb login --relogin
+#wandb login --relogin
 
 cd benchmarks
 

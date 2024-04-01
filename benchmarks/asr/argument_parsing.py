@@ -68,7 +68,9 @@ def add_asr_arguments(argument_parser):
                                  help='Whether to load audio only once the user dataset or '
                                       'central dataset is created. This typically saves '
                                       'memory for large federated datasets but possibly '
-                                      'prolongs the cohort processing.')
+                                      'prolongs the cohort processing. Only applicable if '
+                                      'ASR data are read from tar files with flac audio, '
+                                      'not hdf5.')
 
     # Model arguments
     argument_parser.add_argument('--cape',

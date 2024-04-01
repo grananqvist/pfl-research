@@ -362,6 +362,7 @@ def get_datasets(
             training_split=args.training_split,
             validation_split=args.validation_split,
             evaluation_splits=args.evaluation_splits,
+            max_sample_audio_length=args.max_sample_audio_length,
             dynamic_batching=args.batch_strategy == 'dynamic',
         )
     else:

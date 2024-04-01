@@ -121,7 +121,7 @@ if __name__ == '__main__':
                         help='The path from which the dataset will be read.')
     argument_parser.add_argument(
         '--dataset',
-        choices=['librispeech', 'common-voice-en-v13'],
+        choices=['librispeech', 'cv-en-v13'],
         default="librispeech",
         help='Which dataset to preprocess.')
     argument_parser.add_argument(
@@ -149,10 +149,5 @@ if __name__ == '__main__':
                                       'prolongs the cohort processing.')
     arguments = argument_parser.parse_args()
 
-    if arguments.dataset == 'librispeech':
-        for federated_split in arguments.federated_splits:
-            create_federated('librispeech', federated_split, arguments)
-
-    elif arguments.dataset == 'common-voice-en-v13':
-        for federated_split in arguments.federated_splits:
-            create_federated('cv-en-v13', federated_split, arguments)
+    for federated_split in arguments.federated_splits:
+        create_federated(arguments.dataset, federated_split, arguments)

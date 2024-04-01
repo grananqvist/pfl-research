@@ -1,6 +1,6 @@
 # bolt task submit --config pfl-research/benchmarks/asr/configs/baseline_bolt.yaml --tar pfl-research
 
-name: "8g ASR 20 steps, CV-hdf5 en-train, cohort 512, 30 iterations"
+name: "8G ASR 20 steps 2xbatch, CV-hdf5 en-train, cohort 512, 30 iterations"
 setup_command: "bash benchmarks/asr/pytorch/setup_bolt_cv.sh"
 #command: "source $(dirname $(poetry run which python3.10))/activate && cd benchmarks && python -m asr.pytorch.train"
 #command: "poetry env use $(which python3.10) && poetry shell && cd benchmarks && python -m asr.pytorch.train"
@@ -43,11 +43,11 @@ arguments:
   - noise_cohort_size: 512
   # Faster simulation. Central val is used.
   - val_cohort_size: 0
-  - central_num_iterations: 30
+  - central_num_iterations: 100
   - batch_strategy: dynamic
-  - local_batch_size: 24000 #384000
-  - central_eval_batch_size: 24000 #384000
-  - max_sample_audio_length: 24000 #384000
+  - local_batch_size: 768000
+  - central_eval_batch_size: 768000
+#  - max_sample_audio_length: 24000 #384000
   - local_num_epochs: 10
   - local_num_steps: 20
   - local_learning_rate: 0.3
