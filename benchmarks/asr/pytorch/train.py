@@ -33,6 +33,7 @@ from pfl.model.pytorch import PyTorchModel
 from pfl.privacy import CentrallyAppliedPrivacyMechanism
 
 from ..argument_parsing import add_asr_arguments, get_central_lr_schedular
+from ..utils import BoltCallback
 
 
 def main():
@@ -165,6 +166,8 @@ def main():
         callbacks.append(ModelCheckpointingCallback(arguments.save_model_path))
 
     if arguments.wandb_project_id:
+        wandb_dir = os.path.dirname(arguments.metrics_file_name)
+        logger.info(f'wandb_dir: {wandb_dir}')
         callbacks.append(
             WandbCallback(
                 wandb_project_id=arguments.wandb_project_id,
@@ -173,7 +176,9 @@ def main():
                 # List of dicts to one dict.
                 wandb_config=dict(vars(arguments)),
                 tags=os.environ.get('WANDB_TAGS', 'empty-tag').split(','),
-                group=os.environ.get('WANDB_GROUP', None)))
+                group=os.environ.get('WANDB_GROUP', None),
+                dir=wandb_dir))
+    callbacks.append(BoltCallback())
 
     model = algorithm.run(algorithm_params=algorithm_params,
                           backend=backend,

@@ -154,7 +154,14 @@ def add_asr_arguments(argument_parser):
         type=int,
         default=0,
         help='Number of iterations to warmup central learning rate.')
-    argument_parser.add_argument('--central_lr_schedule',
+    argument_parser.add_argument(
+        '--central_lr_decay_start_update',
+        type=int,
+        default=None,
+        help='Number of iterations to wait until the decay schedule for '
+             'the central learning rate starts. Should not be used with '
+             'warmup.')
+    argument_parser.add_argument('--central_lr_decay_schedule',
                                  choices=['constant', 'step-decay', 'exponential-decay'],
                                  default='constant',
                                  help='Central learning rate schedule. Warmup is inserted at the '
@@ -162,13 +169,13 @@ def add_asr_arguments(argument_parser):
                                       'specified by the flag --central_lr_warmup_iterations.')
 
     known_args, _ = argument_parser.parse_known_args()
-    if known_args.central_lr_schedule == 'step-decay':
+    if known_args.central_lr_decay_schedule == 'step-decay':
         argument_parser.add_argument('--central_lr_step_decay_iterations',
                                      type=int,
                                      default=500,
                                      help='Number of central iterations for central learning '
                                           'rate step decay.')
-    if known_args.central_lr_schedule in ['step-decay', 'exponential-decay']:
+    if known_args.central_lr_decay_schedule in ['step-decay', 'exponential-decay']:
         argument_parser.add_argument('--central_lr_decay_gamma',
                                      type=float,
                                      default=0.5,
@@ -181,27 +188,37 @@ def add_asr_arguments(argument_parser):
 def get_central_lr_schedular(arguments, central_optimizer):
     import torch.optim.lr_scheduler
     if arguments.central_lr_warmup_iterations > 0:
+        assert arguments.central_lr_decay_start_update is None
         warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
             optimizer=central_optimizer,
             start_factor=1.0 / (arguments.central_lr_warmup_iterations + 1),
             end_factor=1.0,
             total_iters=arguments.central_lr_warmup_iterations,
         )
+        warmup_scheduler_iterations = arguments.central_lr_warmup_iterations
+    elif arguments.central_lr_decay_start_update is not None and arguments.central_lr_decay_start_update > 0:
+        warmup_scheduler = torch.optim.lr_scheduler.ConstantLR(
+            optimizer=central_optimizer,
+            factor=1.0,
+            total_iters=arguments.central_lr_decay_start_update,
+        )
+        warmup_scheduler_iterations = arguments.central_lr_constant_iterations
     else:
         warmup_scheduler = None
+        warmup_scheduler_iterations = None
 
-    if arguments.central_lr_schedule == 'step-decay':
+    if arguments.central_lr_decay_schedule == 'step-decay':
         central_lr_scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer=central_optimizer,
             step_size=arguments.central_lr_step_decay_iterations,
             gamma=arguments.central_lr_decay_gamma,
         )
-    elif arguments.central_lr_schedule == 'exponential-decay':
+    elif arguments.central_lr_decay_schedule == 'exponential-decay':
         central_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
             optimizer=central_optimizer,
             gamma=arguments.central_lr_decay_gamma,
         )
-    elif arguments.central_lr_schedule == 'constant':
+    elif arguments.central_lr_decay_schedule == 'constant':
         central_lr_scheduler = torch.optim.lr_scheduler.ConstantLR(
             optimizer=central_optimizer,
             factor=1.0,
@@ -215,7 +232,7 @@ def get_central_lr_schedular(arguments, central_optimizer):
         central_lr_scheduler_full = torch.optim.lr_scheduler.SequentialLR(
             central_optimizer,
             schedulers=[warmup_scheduler, central_lr_scheduler],
-            milestones=[arguments.central_lr_warmup_iterations])
+            milestones=[warmup_scheduler_iterations])
     else:
         central_lr_scheduler_full = central_lr_scheduler
 

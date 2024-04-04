@@ -1,7 +1,7 @@
 import logging
 import os.path
 import time
-from typing import Any, Dict, Optional, Tuple, Set
+from typing import Any, Dict, Optional, Tuple, Set, Union
 
 import mlx.data as dx
 from mlx.data.core import CharTrie
@@ -219,10 +219,7 @@ class ASRDataset:
         dataset = dataset.filter_key("audio_file", remove=True)
         dataset = dataset.shape("input", "input_length", 0)
 
-        if self.max_sample_audio_length is not None:
-            dataset = dataset.sample_transform(
-                lambda sample: sample if sample['input_length'].item(
-                ) <= self.max_sample_audio_length else {})
+        dataset = remove_long_audio(dataset, self.max_sample_audio_length)
 
         return dataset
 
@@ -603,7 +600,7 @@ class MlxDataUserDataset(Dataset):
                     # np.prod(x[self._dynamic_batching_key].shape) for x in dataset
                     x[self._dynamic_batching_key].size for x in dataset
                 ]
-                print('dynamic_batching_values[:100]:', dynamic_batching_values[:100])
+                # print('dynamic_batching_values[:100]:', dynamic_batching_values[:100])
                 batch_sizes = get_dynamic_batch_sizes(batch_size,
                                                       dynamic_batching_values)
                 dataset = dataset.batch(batch_sizes)
@@ -741,3 +738,10 @@ def construct_char_trie_for_ctc(characters: Set[str]):
         trie.insert(c)
     trie.insert("@")  # blank TODO: Do we need this?
     return trie
+
+
+def remove_long_audio(dataset: Union[dx._c.Buffer, dx._c.Stream], max_sample_audio_length: int):
+    if max_sample_audio_length is not None:
+        dataset = dataset.sample_transform(
+            lambda x, max_len=max_sample_audio_length: x if x['input'].size <= max_len else {})
+    return dataset

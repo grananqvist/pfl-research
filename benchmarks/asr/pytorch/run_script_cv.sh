@@ -25,7 +25,7 @@ python -m asr.pytorch.train \
     --local_num_epochs 10 \
     --dummy_model_size 100 \
     --central_lr_warmup_iterations 3 \
-    --central_lr_schedule exponential-decay \
+    --central_lr_decay_schedule exponential-decay \
     --central_lr_decay_gamma 0.9 \
     --local_max_grad_norm 1.0
 

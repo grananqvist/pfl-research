@@ -7,7 +7,7 @@ import numpy as np
 import mlx.data as dx
 from pfl.data.federated_dataset import FederatedDataset
 from pfl.data.sampling import MinimizeReuseUserSampler
-from .common import MlxDataUserDataset, construct_char_trie_for_ctc
+from .common import MlxDataUserDataset, construct_char_trie_for_ctc, remove_long_audio
 from typing import List
 
 
@@ -94,12 +94,8 @@ def get_central_dataset(data_path: str, split: str, max_sample_audio_length: int
         trie = construct_char_trie_for_ctc(characters)
         all_data = process_users(hdf5_file, split, user_ids)
         dataset = dx.buffer_from_vector(list(all_data))
-        if max_sample_audio_length is not None:
-            print(dataset)
-            print('dataset.size() before deleting long samples:', dataset.size())
-            dataset = dataset.sample_transform(
-                lambda sample: sample if sample['input'].size <= max_sample_audio_length else {})
-            print('dataset.size() after deleting long samples:', dataset.size())
+        dataset = remove_long_audio(dataset, max_sample_audio_length)
+
         dynamic_batching_key = 'input' if dynamic_batching else None
         return MlxDataUserDataset(
             dataset,
@@ -116,11 +112,7 @@ def get_federated_dataset(data_path: str, split: str, max_sample_audio_length: i
             dataset = dx.buffer_from_vector(list(user_data))
             # TODO: Delete too-long audio based on max_sample_audio_length.
 
-            if max_sample_audio_length is not None:
-                print('dataset.size() before deleting long samples:', dataset.size())
-                dataset = dataset.sample_transform(
-                    lambda sample: sample if sample['input'].size <= max_sample_audio_length else {})
-                print('dataset.size() after deleting long samples:', dataset.size())
+            dataset = remove_long_audio(dataset, max_sample_audio_length)
 
         return MlxDataUserDataset(
             dataset,
