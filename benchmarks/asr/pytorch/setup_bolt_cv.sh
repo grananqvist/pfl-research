@@ -1,12 +1,27 @@
 #!/bin/bash
 
+apt-get update
+#apt-get install python3.10
+
+curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+bash Miniforge3-$(uname)-$(uname -m).sh -b
+export PATH="/root/miniforge3/bin:$PATH"
+eval "$(conda shell.bash activate)"
+conda install python=3.10
+
+echo "python3.10 --version: $(python3.10 --version)"
+#alias python3.10=python3
 wget https://bootstrap.pypa.io/get-pip.py
 python3.10 ./get-pip.py
 python3.10 -m pip install poetry
 poetry env use $(which python3.10)
-poetry install -E pytorch -E trees
+poetry install -E pytorch -E tf -E trees
 . $(dirname $(poetry run which python3.10))/activate
-pip install pandas mlx-data horovod unidecode einops h5py wandb
+pip install nvtx
+
+HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_TENSORFLOW=0 python -m pip install \
+		--progress-bar off --no-cache-dir horovod[pytorch]
+pip install pandas mlx-data unidecode einops h5py wandb
 # for Lamb
 pip install torch_optimizer
 # for LARS

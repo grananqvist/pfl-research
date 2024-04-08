@@ -5,6 +5,8 @@ NUM_PROCESSES=$NUM_GPUS
 
 echo "NUM_GPUS=${NUM_GPUS}"
 
+export PATH="/root/miniforge3/bin:$PATH"
+
 source $(dirname $(poetry run which python3.10))/activate
 
 export NO_PROXY="${NO_PROXY},mlr-wandb.corp.apple.com"

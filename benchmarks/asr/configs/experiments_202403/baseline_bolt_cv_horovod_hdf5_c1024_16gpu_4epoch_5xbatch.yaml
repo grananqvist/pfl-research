@@ -92,6 +92,7 @@ arguments:
 environment_variables:
   PYTHONPATH: "."
   WANDB_API_KEY: "local-cb3b7266d097ac218cdcdbff0c8657f0c92dbcff"
+#  PATH: "/usr/local/bin:/usr/bin/:/usr/local/cuda/bin:$PATH"
 
 priority: 1
 project_id: priml
@@ -100,7 +101,8 @@ resources:
   cluster: aws_1
 #  cluster: aws_2
   disk_gb: 1024.0
-  docker_image: docker.apple.com/iris/iris:latest
+#  docker_image: docker.apple.com/iris/iris:latest
+  docker_image: docker.apple.com/ndjaitly/mlx-cuda-11.8-cudnn8-ubuntu20.04-nccl-2.17.1-efa-1.22.1-torch-2.1.0
 #  memory_gb: 1100.0
   num_cpus: 96
 #  num_gpus: 4
