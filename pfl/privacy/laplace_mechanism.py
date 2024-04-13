@@ -30,9 +30,11 @@ class LaplaceMechanism(CentrallyApplicablePrivacyMechanism, NormClipping,
         This gives an upper bound on the amount of privacy loss.
     """
 
-    def __init__(self, clipping_bound: HyperParamClsOrFloat, epsilon: float):
-        NormClipping.__init__(self, 1., clipping_bound)
+    def __init__(self, clipping_bound: HyperParamClsOrFloat, clipping_policy: str,
+                 epsilon: float):
+        NormClipping.__init__(self, 1., clipping_bound, clipping_policy)
         self._epsilon = epsilon
+        self._clipping_policy = clipping_policy
 
     def sensitivity_scaling(self, num_dimensions):
         return 1

@@ -21,7 +21,7 @@ pip install nvtx
 
 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_TENSORFLOW=0 python -m pip install \
 		--progress-bar off --no-cache-dir horovod[pytorch]
-pip install pandas mlx-data unidecode einops h5py wandb
+pip install pandas mlx-data unidecode einops h5py wandb awscli
 # for Lamb
 pip install torch_optimizer
 # for LARS

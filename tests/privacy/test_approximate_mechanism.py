@@ -160,7 +160,8 @@ class TestApproximateMechanism:
                                               norm_bound):
         np.random.seed(123)
 
-        self.compare_approximation(GaussianMechanism(norm_bound, .1),
+        # TODO: Parametrize clipping policy
+        self.compare_approximation(GaussianMechanism(norm_bound, 'global', .1),
                                    num_samples=num_samples,
                                    num_dimensions=num_dimensions,
                                    l2_norm=l2_norm,

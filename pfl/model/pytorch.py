@@ -357,15 +357,21 @@ class PyTorchModel(StatefulModel):
             grad_accumulation_state=pytorch_ops.GradAccumulationState(
                 self._get_local_num_steps(train_params, len(user_dataset)),
                 train_params.grad_accumulation_steps))
-        for _ in range(num_epochs):
-            for batch_ix, batch in enumerate(
-                    user_dataset.iter(train_params.get('local_batch_size'))):
+        # print('local_num_epochs:', num_epochs)
+        # print('local_num_steps:', train_params.get('local_num_steps'))
+        batch_ix = 0
+        for epoch in range(num_epochs):
+            for batch in user_dataset.iter(train_params.get('local_batch_size')):
                 if batch_ix == train_params.get('local_num_steps'):
                     break
+                # print(f'making local step {batch_ix} (epoch {epoch})')
                 batch = self._prepare_batch(batch)
                 train_step_fn(self._model, local_optimizer, batch,
                               user_dataset.train_kwargs, train_step_args,
                               **kwargs)
+                batch_ix += 1
+            if batch_ix == train_params.get('local_num_steps'):
+                break
 
     def evaluate(self,
                  dataset: AbstractDatasetType,

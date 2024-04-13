@@ -274,6 +274,15 @@ def add_mechanism_arguments(argument_parser):
         'Bound for norm clipping so that the local privacy mechanism can be '
         'applied.')
 
+    argument_parser.add_argument(
+        '--local_privacy_clipping_policy',
+        default='global',
+        choices=['global', 'per_layer_uniform', 'per_layer_dimensional'],
+        help=
+        'Policy for norm clipping. Typically, "global" clipping should be used. '
+        'Regardless of the clipping policy, the norm is expected to be '
+        'upper bounded by the clipping bound.')
+
     class OrderAction(argparse.Action):
 
         def __init__(self, option_strings, dest, nargs=None, **kwargs):
@@ -352,6 +361,7 @@ def add_mechanism_arguments(argument_parser):
 
 def parse_mechanism(mechanism_name,
                     clipping_bound=None,
+                    clipping_policy=None,
                     epsilon=None,
                     delta=None,
                     order=None,
@@ -368,7 +378,7 @@ def parse_mechanism(mechanism_name,
         assert clipping_bound is not None
         assert epsilon is not None and delta is not None
         mechanism = GaussianMechanism.construct_single_iteration(
-            clipping_bound, epsilon, delta)
+            clipping_bound, clipping_policy, epsilon, delta)
 
     elif mechanism_name == 'gaussian_moments_accountant':
         assert clipping_bound is not None
@@ -391,7 +401,9 @@ def parse_mechanism(mechanism_name,
             delta=delta,
             noise_scale=noise_scale)
         mechanism = GaussianMechanism.from_privacy_accountant(
-            accountant=accountant, clipping_bound=clipping_bound)
+            accountant=accountant,
+            clipping_bound=clipping_bound,
+            clipping_policy=clipping_policy)
 
     elif mechanism_name == 'banded_matrix_factorization':
         assert clipping_bound is not None
@@ -416,7 +428,7 @@ def parse_mechanism(mechanism_name,
             delta=delta,
             noise_scale=noise_scale)
         mechanism = BandedMatrixFactorizationMechanism(
-            clipping_bound, num_epochs, min_separation,
+            clipping_bound, clipping_policy, num_epochs, min_separation,
             make_privacy_accountant)
 
     elif mechanism_name == 'laplace':
@@ -427,7 +439,7 @@ def parse_mechanism(mechanism_name,
     elif mechanism_name == 'norm_clipping_only':
         assert clipping_bound is not None
         assert order is not None
-        mechanism = NormClippingOnly(order, clipping_bound)
+        mechanism = NormClippingOnly(order, clipping_bound, clipping_policy)
 
     else:
         raise ValueError(

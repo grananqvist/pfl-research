@@ -136,9 +136,10 @@ class TestMechanisms:
     def test_norm_clipping(self, ops_module, norm_bound):
         shapes = [(2, 2, 2), (2, 5, 3)]
 
+        # TODO: Change 'global' to a parameter passing through all types and subsequent changes.
         for mechanism, norm_function in [
-            (NormClippingOnly(1, norm_bound), self._compute_l1_norm),
-            (NormClippingOnly(2, norm_bound), self._compute_l2_norm)
+            (NormClippingOnly(1, norm_bound, 'global'), self._compute_l1_norm),
+            (NormClippingOnly(2, norm_bound, 'global'), self._compute_l2_norm)
         ]:
             self._check_norm_clipping(mechanism, shapes, norm_function,
                                       ops_module)
@@ -292,8 +293,9 @@ class TestMechanisms:
             _epsilon, sigma, norm_bound)
         assert delta_check == pytest.approx(_delta)
 
+        # TODO: Parametrize clipping policy
         mechanism = GaussianMechanism.construct_single_iteration(
-            norm_bound, _epsilon, _delta)
+            norm_bound, 'global', _epsilon, _delta)
         return (mechanism, sigma)
 
     def _from_privacy_accountant_sigma(self, norm_bound, noise_scale):
@@ -301,8 +303,9 @@ class TestMechanisms:
                 'pfl.privacy.privacy_accountant.PrivacyAccountant.__post_init__'  # pylint: disable=line-too-long
         ):
             accountant = MagicMock(cohort_noise_parameter=0.5 * noise_scale)
+            # TODO: Parametrize clipping policy
             mechanism = GaussianMechanism.from_privacy_accountant(
-                accountant=accountant, clipping_bound=norm_bound)
+                accountant=accountant, clipping_bound=norm_bound, clipping_policy='global')
             return (mechanism, mechanism.relative_noise_stddev * norm_bound)
 
     def test_privacy_accountant_noise_scalar(self):
@@ -354,7 +357,8 @@ class TestMechanisms:
                                fix_global_random_seeds):
         shapes = [(1, 20000, 40), (2, 14000, 56)]
 
-        mechanism = LaplaceMechanism(norm_bound, _epsilon)
+        # TODO: Parametrize clipping policy
+        mechanism = LaplaceMechanism(norm_bound, 'global', _epsilon)
 
         # standard deviation of a Laplace distribution
         b = norm_bound / _epsilon
@@ -453,9 +457,10 @@ class TestMechanisms:
                                      'b': 2.99 / 3 * np.array([3.])
                                  }, 1.0, 2.99),
                              ])
+    # TODO: Parametrize norm clipping policy
     def test_norm_clipping_only(self, order, clipping_bound, expected_arrays,
                                 expected_clip_fraction, expected_norm_bound):
-        norm_clipping = NormClippingOnly(order, clipping_bound)
+        norm_clipping = NormClippingOnly(order, clipping_bound, 'global')
         noisy, metrics = norm_clipping.postprocess_one_user(
             stats=MappedVectorStatistics({
                 'a': np.array([1., 2.]),

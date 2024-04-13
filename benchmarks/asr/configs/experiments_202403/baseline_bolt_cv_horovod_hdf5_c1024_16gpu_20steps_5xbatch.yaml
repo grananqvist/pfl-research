@@ -39,8 +39,8 @@ arguments:
   - metrics_file_name: "$BOLT_ARTIFACT_DIR/metrics.csv"
 
   - learning_rate: 0.006
-  - cohort_size: 512
-  - noise_cohort_size: 512
+  - cohort_size: 1024
+  - noise_cohort_size: 1024
   # Faster simulation. Central val is used.
   - val_cohort_size: 0
   - central_num_iterations: 100
@@ -48,7 +48,7 @@ arguments:
   - local_batch_size: 1920000 #384000
   - central_eval_batch_size: 1920000 #384000
 #  - max_sample_audio_length: 22000 #384000
-  - local_num_epochs: 10
+  - local_num_epochs: 20
   - local_num_steps: 20
   - local_learning_rate: 0.3
   - local_max_grad_norm: 1.0
@@ -85,19 +85,24 @@ arguments:
   # TODO: Fix
   - scaffold_population: 342477
 
-#attribution:
-#  phase: dev
-#  project: ASR-PFL
-#  research_program: 13vWAYnXpBIy
+attribution:
+  project: ASR-PFL
+  phase: dev
+  research_program: 13vWAYnXpBIy
+  fm_development_type: pre_training
+
 environment_variables:
   PYTHONPATH: "."
   WANDB_API_KEY: "local-cb3b7266d097ac218cdcdbff0c8657f0c92dbcff"
 
 priority: 1
-project_id: priml
-#project_id: snr_compute
+#project_id: priml
+#project_id: mlr_awsa100_40efa
+project_id: mlr_gcpa100_80_40
+
 resources:
-  cluster: aws_1
+  cluster: gcp1
+#  cluster: aws_1
 #  cluster: aws_2
   disk_gb: 1024.0
   docker_image: docker.apple.com/iris/iris:latest
@@ -122,6 +127,6 @@ cluster_options:
   aws:
     instance_type: p4d.24xlarge
 #    instance_type: p4de.24xlarge
-
-
+  gcp:
+    instance_type: a2-ultragpu-8g
 

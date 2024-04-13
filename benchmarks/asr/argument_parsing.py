@@ -27,6 +27,12 @@ def add_asr_arguments(argument_parser):
         type=float,
         default=None,
         help='Gradient clipping bound in local SGD training.')
+    argument_parser.add_argument(
+        '--grad_accumulation_steps',
+        type=int,
+        default=1,
+        help='Effective local batch size is local batch size '
+             'multiplied by this number.')
 
     # Dataset arguments
     argument_parser.add_argument(
@@ -128,13 +134,6 @@ def add_asr_arguments(argument_parser):
         help='Cast the model weights precision to the same as used in '
         'autocast. This saves memory but may cause divergence due to '
         'lower precision.')
-
-    argument_parser.add_argument(
-        '--grad_accumulation_steps',
-        type=int,
-        default=1,
-        help='Effective local batch size is local batch size '
-        'multiplied by this number.')
 
     argument_parser.add_argument(
         '--use_torch_compile',

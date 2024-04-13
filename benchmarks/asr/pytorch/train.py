@@ -63,12 +63,14 @@ def main():
     local_privacy = parse_mechanism(
         mechanism_name=arguments.local_privacy_mechanism,
         clipping_bound=arguments.local_privacy_clipping_bound,
+        clipping_policy=arguments.local_privacy_clipping_policy,
         epsilon=arguments.local_epsilon,
         delta=arguments.local_delta,
         order=arguments.local_order)
     central_privacy = parse_mechanism(
         mechanism_name=arguments.central_privacy_mechanism,
         clipping_bound=arguments.central_privacy_clipping_bound,
+        clipping_policy=arguments.local_privacy_clipping_policy,
         epsilon=arguments.central_epsilon,
         delta=arguments.central_delta,
         order=arguments.central_order,
@@ -115,7 +117,11 @@ def main():
     model = PyTorchModel(model=pytorch_model,
                          local_optimizer_create=torch.optim.SGD,
                          central_optimizer=central_optimizer,
-                         central_learning_rate_scheduler=central_lr_schedular)
+                         central_learning_rate_scheduler=central_lr_schedular,
+                         amp_dtype=getattr(torch, arguments.amp_dtype),
+                         grad_scaling=arguments.grad_scaling,
+                         model_dtype_same_as_amp=arguments.model_dtype_same_as_amp,
+                         use_torch_compile=arguments.use_torch_compile)
 
     postprocessors = [
         local_privacy,
@@ -131,10 +137,11 @@ def main():
 
     model_train_params = NNTrainHyperParams(
         local_learning_rate=arguments.local_learning_rate,
-        local_num_epochs=None if arguments.local_num_steps else arguments.local_num_epochs,
+        local_num_epochs=arguments.local_num_epochs,
         local_num_steps=arguments.local_num_steps,
         local_batch_size=arguments.local_batch_size,
-        local_max_grad_norm=arguments.local_max_grad_norm)
+        local_max_grad_norm=arguments.local_max_grad_norm,
+        grad_accumulation_steps=arguments.grad_accumulation_steps)
 
     model_eval_params = NNEvalHyperParams(
         local_batch_size=arguments.central_eval_batch_size)

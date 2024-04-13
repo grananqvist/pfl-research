@@ -359,9 +359,11 @@ class NormClipping(SplitPrivacyMechanism):
         The norm bound for clipping.
     """
 
-    def __init__(self, order: float, clipping_bound: HyperParamClsOrFloat):
+    def __init__(self, order: float, clipping_bound: HyperParamClsOrFloat,
+                 clipping_policy: str):
         self._order = order
         self._clipping_bound = clipping_bound
+        self._clipping_policy = clipping_policy
         assert order > 0.0
         assert (order % 1 == 0 or order
                 == float('inf')), "Order must be a natural number or infinity"
@@ -369,6 +371,10 @@ class NormClipping(SplitPrivacyMechanism):
     @property
     def clipping_bound(self):
         return self._clipping_bound
+
+    @property
+    def clipping_policy(self):
+        return self._clipping_policy
 
     def constrain_sensitivity(
             self,
@@ -380,6 +386,19 @@ class NormClipping(SplitPrivacyMechanism):
             Statistics with their overall norm bounded by ``clipping_bound``.
             The norm of these statistics may be less.
         """
+
+        def clip_layer(t, layer_clipping_bound, order):
+            t_norm = get_ops().norm(t, order)
+            if t_norm > layer_clipping_bound:
+                return t * (layer_clipping_bound / t_norm)
+            return t
+
+        def transform_weights(weights, layer_clipping_bound, order):
+            new_weights = []
+            for w in weights:
+                new_weights.append(clip_layer(w, layer_clipping_bound, order))
+            return new_weights
+
         clipping_bound = get_param_value(self._clipping_bound)
 
         _metadata, weights = statistics.get_weights()
@@ -388,12 +407,26 @@ class NormClipping(SplitPrivacyMechanism):
         # Compute the number of times clipping occurs (out of 1).
         clipped_count = int(global_norm > clipping_bound)
 
+        print('global_norm:', global_norm,
+              'clipped_count:', clipped_count,
+              'self._clipping_policy:', self._clipping_policy,
+              'len(weights):', len(weights))
+
         # Normalise all arrays at once.
         # Otherwise the noise would have to be computed separately for arrays,
         # and then the epsilons add up.
         if clipped_count:
-            statistics = statistics.apply_elementwise(
-                lambda v: v * (clipping_bound / global_norm))
+            if self._clipping_policy == 'global':
+                statistics = statistics.apply_elementwise(
+                    lambda v: v * (clipping_bound / global_norm))
+            elif self._clipping_policy == 'per_layer_uniform':
+                num_tensors = len(weights)
+                layer_clipping_bound = clipping_bound / np.power(num_tensors, 1.0/self._order)
+                print(f'Norm before clipping with PLU ({layer_clipping_bound}):', get_ops().global_norm(statistics.get_weights()[1], self._order))
+                statistics = statistics.apply(transform_weights, layer_clipping_bound, self._order)
+                print(f'Norm after clipping with PLU ({layer_clipping_bound}):', get_ops().global_norm(statistics.get_weights()[1], self._order))
+            else:
+                raise ValueError(f'Clipping policy {self._clipping_policy} not implemented.')
 
         metrics = Metrics([
             (name_formatting_fn(f'l{self._order:.0f} norm bound'),
@@ -419,6 +452,7 @@ class NormClippingOnly(NormClipping, NoPrivacy):
         The norm bound for clipping.
     """
 
-    def __init__(self, order: float, clipping_bound: HyperParamClsOrFloat):
-        NormClipping.__init__(self, order, clipping_bound)
+    def __init__(self, order: float, clipping_bound: HyperParamClsOrFloat,
+                 clipping_policy: str):
+        NormClipping.__init__(self, order, clipping_bound, clipping_policy)
         NoPrivacy.__init__(self)

@@ -8,7 +8,8 @@ time python -m asr.pytorch.train \
     --data_path ~/.cache/mlx.data/cv-v13 \
     --dataset asr-hdf5 \
     --model_name asr_ctc_transformer \
-    --local_batch_size 384000 \
+    --local_batch_size 192000 \
+    --grad_accumulation_steps 2 \
     --evaluation_frequency 1 \
     --cohort_size 128 \
     --training_split en-dev \

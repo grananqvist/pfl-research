@@ -61,8 +61,9 @@ class GaussianMechanism(CentrallyApplicablePrivacyMechanism,
     """
 
     def __init__(self, clipping_bound: HyperParamClsOrFloat,
+                 clipping_policy: str,
                  relative_noise_stddev: float):
-        NormClipping.__init__(self, 2., clipping_bound)
+        NormClipping.__init__(self, 2., clipping_bound, clipping_policy)
         self._relative_noise_stddev = relative_noise_stddev
         self._privacy_accountant: Optional[PrivacyAccountant] = None
 
@@ -112,6 +113,7 @@ class GaussianMechanism(CentrallyApplicablePrivacyMechanism,
 
     @classmethod
     def construct_single_iteration(cls, clipping_bound: HyperParamClsOrFloat,
+                                   clipping_policy: str,
                                    epsilon: float,
                                    delta: float) -> 'GaussianMechanism':
         """
@@ -136,15 +138,16 @@ class GaussianMechanism(CentrallyApplicablePrivacyMechanism,
         relative_noise_stddev = compute_parameters.AnalyticGM_robust(
             epsilon, delta, 1, 1.)
 
-        return cls(clipping_bound, relative_noise_stddev)
+        return cls(clipping_bound, clipping_policy, relative_noise_stddev)
 
     @classmethod
     def from_privacy_accountant(cls, accountant: PrivacyAccountant,
-                                clipping_bound: HyperParamClsOrFloat):
+                                clipping_bound: HyperParamClsOrFloat,
+                                clipping_policy: str):
         """
         Construct an instance of `GaussianMechanism` from an instance of
         `PrivacyAccountant`.
         """
-        obj = cls(clipping_bound, accountant.cohort_noise_parameter)
+        obj = cls(clipping_bound, clipping_policy, accountant.cohort_noise_parameter)
         obj._privacy_accountant = accountant
         return obj

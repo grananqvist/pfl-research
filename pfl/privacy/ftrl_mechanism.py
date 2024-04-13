@@ -174,8 +174,8 @@ class BandedMatrixFactorizationMechanism(GaussianMechanism):
     _QUERY_MATRIX_NPY_NAME = 'query_matrix.npy'
     _QUERY_MATRIX_DIR_PATH = 'banded_mf_dp_ftrl'
 
-    def __init__(self, clipping_bound: float, num_iterations: int,
-                 min_separation: int,
+    def __init__(self, clipping_bound: float, clipping_policy: str,
+                 num_iterations: int, min_separation: int,
                  make_privacy_accountant: Callable[[int], PrivacyAccountant]):
 
         max_participation = num_iterations // min_separation + int(
@@ -185,6 +185,7 @@ class BandedMatrixFactorizationMechanism(GaussianMechanism):
 
         super().__init__(
             clipping_bound=clipping_bound,
+            clipping_policy=clipping_policy,
             relative_noise_stddev=privacy_accountant.cohort_noise_parameter)
 
         query_matrix_dir = get_platform().create_checkpoint_directories(

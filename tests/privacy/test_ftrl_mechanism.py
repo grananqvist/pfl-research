@@ -226,8 +226,10 @@ class TestBandedMatrixFactorizationMechanism:
     def _get_banded_matrix_mechanism():
         make_privacy_accountant = lambda num_compositions: MagicMock(
             cohort_noise_parameter=1.1713266372680664)
+        # TODO: Parametrize clipping policy
         return BandedMatrixFactorizationMechanism(
             clipping_bound=1.0,
+            clipping_policy='global',
             num_iterations=16,
             min_separation=4,
             make_privacy_accountant=make_privacy_accountant)
