@@ -1,6 +1,6 @@
 # bolt task submit --config pfl-research/benchmarks/asr/configs/baseline_bolt.yaml --tar pfl-research
 
-name: "16G ASR 20 steps 5xbatch, CV-hdf5 en-train, cohort 1024, 100 iterations"
+name: "16G ASR 20epochs_schedule"
 setup_command: "bash benchmarks/asr/pytorch/setup_bolt_cv.sh"
 #command: "source $(dirname $(poetry run which python3.10))/activate && cd benchmarks && python -m asr.pytorch.train"
 #command: "poetry env use $(which python3.10) && poetry shell && cd benchmarks && python -m asr.pytorch.train"
@@ -43,13 +43,13 @@ arguments:
   - noise_cohort_size: 1024
   # Faster simulation. Central val is used.
   - val_cohort_size: 0
-  - central_num_iterations: 100
+  - central_num_iterations: 10
   - batch_strategy: dynamic
   - local_batch_size: 1920000 #384000
   - central_eval_batch_size: 1920000 #384000
 #  - max_sample_audio_length: 22000 #384000
   - local_num_epochs: 20
-  - local_num_steps: 20
+  #- local_num_steps: 20
   - local_learning_rate: 0.3
   - local_max_grad_norm: 1.0
 
@@ -96,13 +96,13 @@ environment_variables:
   WANDB_API_KEY: "local-cb3b7266d097ac218cdcdbff0c8657f0c92dbcff"
 
 priority: 1
-#project_id: priml
+project_id: priml
 #project_id: mlr_awsa100_40efa
-project_id: mlr_gcpa100_80_40
+#project_id: mlr_gcpa100_80_40
 
 resources:
-  cluster: gcp1
-#  cluster: aws_1
+  #cluster: gcp1
+  cluster: AWS_ALL
 #  cluster: aws_2
   disk_gb: 1024.0
   docker_image: docker.apple.com/iris/iris:latest
@@ -110,7 +110,7 @@ resources:
   num_cpus: 96
 #  num_gpus: 4
   task_type: 8gpu
-  timeout: 14d
+  timeout: 1d
   num_nodes: 2
 
 

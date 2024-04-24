@@ -186,6 +186,10 @@ def main():
                 group=os.environ.get('WANDB_GROUP', None),
                 dir=wandb_dir))
     callbacks.append(BoltCallback())
+    #import os
+    #from pfl.callback import ProfilerCallback
+    #callbacks.append(ProfilerCallback(dir_name=os.path.join(os.environ['BOLT_ARTIFACT_DIR'], 'profile')))
+
 
     model = algorithm.run(algorithm_params=algorithm_params,
                           backend=backend,
